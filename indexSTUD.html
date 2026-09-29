@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منظومة متابعة الطلاب ورصد الحضور المتقدمة</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<script>
+tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors:{brand:{50:'#f0fdf4',100:'#dcfce7',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534'}}}}}
+</script>
+<style>body{font-family:'Cairo',sans-serif}.no-scrollbar::-webkit-scrollbar{display:none}</style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
+<!-- LOGIN SCREEN -->
+<div id="login-screen" class="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-sm w-full p-8 shadow-2xl text-center space-y-5">
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-600 text-white flex items-center justify-center text-3xl shadow-md"><i class="fa-solid fa-graduation-cap"></i></div>
+    <div><h1 class="text-xl font-extrabold text-slate-800">منصة المُعلّم الذكي</h1>
+      <p class="text-xs text-slate-500 mt-1">ادخل مفتاح الدخول الخاص بك للمتابعة</p></div>
+    <form onsubmit="handleLogin(event)" class="space-y-3">
+      <input id="login-key" type="text" dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="مفتاح الدخول"
+        class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-center font-mono tracking-widest uppercase focus:ring-brand-500 focus:border-brand-500">
+      <p id="login-error" class="text-red-600 text-xs font-semibold hidden"></p>
+      <button id="login-btn" type="submit" class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition disabled:opacity-60">دخول</button>
+    </form>
+    <p class="text-[11px] text-slate-400">للحصول على مفتاح دخول تواصل مع مسؤول المنصة</p>
+  </div>
+</div>
+
+<!-- ADMIN KEY GENERATOR (افتح الرابط مع #admin) -->
+<div id="admin-panel" class="fixed inset-0 z-[110] bg-slate-900/90 flex items-center justify-center p-4 hidden">
+  <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h3 class="font-bold text-lg">مولّد مفاتيح الدخول (للمسؤول)</h3>
+      <button onclick="closeAdmin()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <button onclick="genKey()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">توليد مفتاح جديد عشوائي</button>
+    <div><label class="block text-xs font-bold mb-1">مفتاح الدخول (اعطيه للمدرس)</label>
+      <div class="flex gap-2"><input id="adm-key" dir="ltr" oninput="hashKey()" class="flex-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono">
+      <button onclick="copyVal('adm-key')" class="px-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">نسخ</button></div></div>
+    <div><label class="block text-xs font-bold mb-1">البصمة (تتحط في Firebase كـ Document ID داخل allowedKeys)</label>
+      <div class="flex gap-2"><input id="adm-hash" dir="ltr" readonly class="flex-1 p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-[11px] font-mono">
+      <button onclick="copyVal('adm-hash')" class="px-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">نسخ</button></div></div>
+  </div>
+</div>
+
+
+<header class="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="bg-brand-600 p-2.5 rounded-xl shadow-md"><i class="fa-solid fa-graduation-cap text-2xl"></i></div>
+      <div>
+        <h1 class="text-xl font-bold">منصة المُعلّم الذكي</h1>
+        <p class="text-xs text-slate-400">نظام إدارة ومتابعة الحضور والتواصل عبر الواتساب</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="sync-status" class="text-xs text-slate-400 hidden sm:inline"></span><button onclick="logout()" class="bg-red-900/60 hover:bg-red-800 text-xs sm:text-sm px-3 py-2 rounded-lg border border-red-800 flex items-center gap-2"><i class="fa-solid fa-right-from-bracket"></i><span class="hidden sm:inline">خروج</span></button><button onclick="exportData()" class="bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm px-3 py-2 rounded-lg border border-slate-700 flex items-center gap-2"><i class="fa-solid fa-download"></i><span class="hidden sm:inline">تصدير بيانات</span></button>
+      <label class="bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm px-3 py-2 rounded-lg border border-slate-700 flex items-center gap-2 cursor-pointer"><i class="fa-solid fa-upload"></i><span class="hidden sm:inline">استيراد</span>
+        <input type="file" onchange="importData(event)" class="hidden" accept=".json"></label>
+    </div>
+  </div>
+</header>
+
+<nav class="bg-white border-b border-slate-200 shadow-sm sticky top-[61px] z-40">
+  <div id="nav-tabs" class="max-w-7xl mx-auto px-4 flex overflow-x-auto no-scrollbar gap-2"></div>
+</nav>
+
+<main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full">
+
+<!-- DASHBOARD -->
+<section id="view-dashboard" class="view-section space-y-6">
+  <div id="stat-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <h3 class="text-lg font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-bolt text-amber-500"></i> الإجراءات السريعة</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <button onclick="switchTab('attendance')" class="p-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl flex items-center gap-4 text-right">
+          <div class="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl"><i class="fa-solid fa-clipboard-check"></i></div>
+          <div><h4 class="font-bold text-emerald-950">ابدأ حصة جديدة</h4><p class="text-xs text-emerald-700">رصد الحضور وإرسال رسائل الواتساب</p></div>
+        </button>
+        <button onclick="switchTab('classes')" class="p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl flex items-center gap-4 text-right">
+          <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl"><i class="fa-solid fa-folder-plus"></i></div>
+          <div><h4 class="font-bold text-blue-950">إضافة صف دراسي</h4><p class="text-xs text-blue-700">تنظيم الصفوف والمراحل</p></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <h3 class="text-lg font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-bell text-brand-600"></i> ملخص الدفع - <span id="current-month-label"></span></h3>
+      <div id="cur-pay-summary" class="space-y-3"></div>
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <h3 class="text-lg font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-column text-indigo-600"></i> الملخص العام لحالة الدفع (كل الشهور)</h3>
+    <div id="gen-pay-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5"></div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-right text-sm">
+        <thead class="bg-slate-50 text-slate-600 border-b"><tr>
+          <th class="p-3">الشهر</th><th class="p-3">مدفوع</th><th class="p-3">لم يدفع</th><th class="p-3">جزئي</th><th class="p-3">حضور</th><th class="p-3">غياب</th>
+        </tr></thead>
+        <tbody id="monthly-summary-body" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- CLASSES -->
+<section id="view-classes" class="view-section space-y-6 hidden">
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div>
+      <h2 class="text-xl font-bold">إدارة الصفوف والمراحل الدراسية</h2>
+      <p class="text-xs text-slate-500 mt-1">أنشئ الصفوف الدراسية لتصنيف الطلاب وتسهيل رصد الحضور والدفع</p>
+    </div>
+    <button onclick="openClassModal()" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl flex items-center justify-center gap-2"><i class="fa-solid fa-plus"></i> إضافة صف جديد</button>
+  </div>
+  <div id="classes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+</section>
+
+<!-- ATTENDANCE -->
+<section id="view-attendance" class="view-section space-y-6 hidden">
+  <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div>
+        <h2 class="text-xl font-bold">رصد الحضور والغياب المباشر</h2>
+        <p class="text-xs text-slate-500 mt-0.5">اختر الشهر والصف، ثم سجّل وأرسل للطالب أو ولي الأمر</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-sm font-semibold whitespace-nowrap">الشهر:</label>
+        <select id="attendance-month-select" onchange="changeMonth(this.value)" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 font-semibold"></select>
+        <label class="text-sm font-semibold whitespace-nowrap mr-2">الصف الدراسي:</label>
+        <select id="attendance-class-select" onchange="loadAttendanceList()" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 min-w-[180px] font-semibold"></select>
+      </div>
+    </div>
+    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-indigo-900 text-xs flex items-center gap-2">
+      <i class="fa-solid fa-circle-info text-indigo-600 text-base"></i>
+      <span>الحضور والغياب والدفع بيتسجلوا على الشهر المختار، وكل شهر جديد بيبدأ من صفر وحالة "لم يدفع" تلقائيًا.</span>
+    </div>
+  </div>
+  <div id="attendance-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+</section>
+
+<!-- STUDENTS -->
+<section id="view-students" class="view-section space-y-6 hidden">
+  <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h2 class="text-xl font-bold">سجل الطلاب والتتبع الشامل</h2>
+        <p class="text-xs text-slate-500 mt-1">البيانات المعروضة تخص الشهر المختار</p>
+      </div>
+      <button onclick="openStudentModal()" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl flex items-center justify-center gap-2"><i class="fa-solid fa-user-plus"></i> إضافة طالب جديد</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2">
+      <select id="filter-month-select" onchange="changeMonth(this.value)" class="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm"></select>
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-3 text-slate-400"></i>
+        <input type="text" id="search-student" oninput="renderStudentsTable()" placeholder="بحث باسم الطالب أو الرقم..." class="w-full pr-10 pl-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm">
+      </div>
+      <select id="filter-class-select" onchange="renderStudentsTable()" class="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm"></select>
+      <select id="filter-payment-select" onchange="renderStudentsTable()" class="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm">
+        <option value="ALL">جميع حالات الدفع</option><option value="PAID">مدفوع</option><option value="UNPAID">لم يدفع</option><option value="PARTIAL">دفع جزئي</option>
+      </select>
+    </div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-right text-sm">
+        <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200"><tr>
+          <th class="p-4">اسم الطالب</th><th class="p-4">الصف الدراسي</th><th class="p-4">رقم الواتساب</th><th class="p-4">رقم ولي الأمر</th>
+          <th class="p-4 text-center">إحصائيات الشهر</th><th class="p-4 text-center">حالة الدفع</th><th class="p-4 text-center">إجراءات</th>
+        </tr></thead>
+        <tbody id="students-table-body" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- TEMPLATES -->
+<section id="view-templates" class="view-section space-y-6 hidden">
+  <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <h2 class="text-xl font-bold mb-1">تخصيص قوالب رسائل الواتساب</h2>
+    <p class="text-xs text-slate-500 mb-6">عدّل الرسائل التلقائية الخاصة بالطالب وولي الأمر لكل حالة:</p>
+    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs space-y-2">
+      <p class="font-bold flex items-center gap-2"><i class="fa-solid fa-code"></i> المتغيرات المتاحة (عدد الحضور والغياب يخص الشهر المختار):</p>
+      <div class="flex flex-wrap gap-2 pt-1">
+        <code class="bg-amber-100 px-2 py-1 rounded">{اسم_الطالب}</code><code class="bg-amber-100 px-2 py-1 rounded">{الصف}</code>
+        <code class="bg-amber-100 px-2 py-1 rounded">{عدد_الغياب}</code><code class="bg-amber-100 px-2 py-1 rounded">{عدد_الحضور}</code><code class="bg-amber-100 px-2 py-1 rounded">{الشهر}</code>
+      </div>
+    </div>
+    <div id="tpl-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+    <div class="mt-6 flex justify-end">
+      <button onclick="saveTemplates()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-xl flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> حفظ جميع القوالب</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- CLASS MODAL -->
+<div id="modal-class" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h3 id="modal-class-title" class="font-bold text-lg"></h3>
+      <button onclick="closeClassModal()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form onsubmit="handleSaveClass(event)" class="space-y-4">
+      <input type="hidden" id="class-id">
+      <div><label class="block text-xs font-bold mb-1">اسم الصف (مثال: الصف الأول الثانوي)</label>
+        <input type="text" id="class-name" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="أدخل اسم الصف..."></div>
+      <div><label class="block text-xs font-bold mb-1">وصف أو مواعيد الحصص (اختياري)</label>
+        <input type="text" id="class-desc" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="مثال: السبت والأربعاء الساعة 4 مساءً"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeClassModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm font-semibold hover:bg-slate-200">إلغاء</button>
+        <button type="submit" class="px-5 py-2 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700">حفظ الصف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- STUDENT MODAL -->
+<div id="modal-student" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+  <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h3 id="modal-student-title" class="font-bold text-lg"></h3>
+      <button onclick="closeStudentModal()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form onsubmit="handleSaveStudent(event)" class="space-y-4">
+      <input type="hidden" id="student-id">
+      <div><label class="block text-xs font-bold mb-1">اسم الطالب رباعي</label>
+        <input type="text" id="student-name" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="أدخل اسم الطالب..."></div>
+      <div><label class="block text-xs font-bold mb-1">الصف الدراسي</label>
+        <select id="student-class-id" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm"></select></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label class="block text-xs font-bold mb-1">رقم واتساب الطالب</label>
+          <input type="text" id="student-phone" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="010XXXXXXXX"></div>
+        <div><label class="block text-xs font-bold mb-1">رقم ولي الأمر</label>
+          <input type="text" id="student-parent-phone" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="010XXXXXXXX"></div>
+      </div>
+      <p class="text-xs font-bold text-indigo-700 bg-indigo-50 rounded-lg p-2">بيانات شهر: <span id="modal-month-label"></span></p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div><label class="block text-xs font-bold mb-1">أيام الغياب</label>
+          <input type="number" id="student-absent-count" min="0" value="0" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm"></div>
+        <div><label class="block text-xs font-bold mb-1">أيام الحضور</label>
+          <input type="number" id="student-present-count" min="0" value="0" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm"></div>
+        <div><label class="block text-xs font-bold mb-1">حالة الدفع</label>
+          <select id="student-payment" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm">
+            <option value="PAID">تم الدفع</option><option value="UNPAID">لم يدفع</option><option value="PARTIAL">دفع جزئي</option></select></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t">
+        <button type="button" onclick="closeStudentModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm font-semibold hover:bg-slate-200">إلغاء</button>
+        <button type="submit" class="px-5 py-2 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700">حفظ الطالب</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ================= CONSTANTS =================
+const TABS = [
+  ['dashboard','fa-solid fa-chart-pie','لوحة التحكم'],
+  ['classes','fa-solid fa-layer-group','إدارة الصفوف'],
+  ['attendance','fa-solid fa-clipboard-user','رصد الحضور والتواصل'],
+  ['students','fa-solid fa-users','قائمة الطلاب والتتبع'],
+  ['templates','fa-brands fa-whatsapp','قوالب الرسائل']
+];
+const PAY = {
+  PAID:   { t:'تم الدفع', c:'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  UNPAID: { t:'لم يدفع',  c:'bg-red-100 text-red-800 border-red-300' },
+  PARTIAL:{ t:'دفع جزئي', c:'bg-amber-100 text-amber-800 border-amber-300' }
+};
+const TPL = [
+  ['presentStudent','رسالة الحضور - للطالب','fa-circle-check text-green-600'],
+  ['presentParent','رسالة الحضور - لولي الأمر','fa-circle-check text-green-600'],
+  ['absentStudent','رسالة الغياب - للطالب','fa-circle-xmark text-red-600'],
+  ['absentParent','رسالة الغياب - لولي الأمر','fa-circle-xmark text-red-600'],
+  ['unpaidStudent','رسالة عدم الدفع - للطالب','fa-credit-card text-amber-600'],
+  ['unpaidParent','رسالة عدم الدفع - لولي الأمر','fa-credit-card text-amber-600']
+];
+const MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+// ================= STATE =================
+let appData = {
+  classes: [], students: [],
+  templates: {
+    presentStudent: "أهلاً بك يا {اسم_الطالب} 👋 نشكرك على حضورك اليوم وتفاعلك الممتاز في {الصف}. استمر في هذا التفوق والنجاح! 🌟",
+    presentParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 نحيطكم علماً بحضور الطالب اليوم لحصة {الصف} والتزامه الكامل. نتمنى له دوام التوفيق. 📚",
+    absentStudent: "أهلاً بك يا {اسم_الطالب} 👋 لاحظنا غيابك اليوم عن حصة {الصف}. نتمنى أن تكون بخير، ونذكرك بأن الحضور المنتظم هو سر تميزك. ننتظرك الحصة القادمة! 🌟",
+    absentParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 نود إحاطتكم بعلم غياب الطالب اليوم عن حصة {الصف}. نرجو المتابعة حرصاً على مستواه الدراسي. (إجمالي الغياب هذا الشهر: {عدد_الغياب} يوم).",
+    unpaidStudent: "أهلاً بك يا {اسم_الطالب} 👋 نذكرك بلطف بضرورة سداد المصروفات الشهرية لحصة {الصف}. شاكرين تعاونك معنا! ✨",
+    unpaidParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 نود تذكيركم بلطف بموعد سداد الاشتراك الشهري الخاص بـ {الصف}. شاكرين حسن تعاونكم معنا مقدماً."
+  }
+};
+
+// ================= MONTH HELPERS =================
+function curKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+function monthLabel(k) { const [y, m] = k.split('-'); return MONTH_NAMES[+m - 1] + ' ' + y; }
+function monthRange(a, b) {
+  const out = []; let [y, m] = a.split('-').map(Number); const [ey, em] = b.split('-').map(Number);
+  while (y < ey || (y === ey && m <= em)) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } }
+  return out;
+}
+let viewMonth = curKey();
+
+// نقل البيانات القديمة تلقائيًا للشهر الحالي
+function ensureMonths(s) {
+  if (!s.months) {
+    s.months = {};
+    s.months[curKey()] = { present: s.presentCount || 0, absent: s.absentCount || 0, payment: s.paymentStatus || 'UNPAID' };
+  }
+  return s.months;
+}
+// أي شهر جديد يبدأ من صفر و"لم يدفع"
+function getMonth(s, k) {
+  const ms = ensureMonths(s);
+  if (!ms[k]) ms[k] = { present: 0, absent: 0, payment: 'UNPAID' };
+  return ms[k];
+}
+function monthView(s) { const m = getMonth(s, viewMonth); return { ...s, presentCount: m.present, absentCount: m.absent, paymentStatus: m.payment }; }
+function studentMonths(s) {
+  const ks = Object.keys(ensureMonths(s)).sort();
+  const start = ks[0] && ks[0] < curKey() ? ks[0] : curKey();
+  return monthRange(start, curKey());
+}
+function populateMonthSelects() {
+  let earliest = curKey();
+  appData.students.forEach(s => Object.keys(ensureMonths(s)).forEach(k => { if (k < earliest) earliest = k; }));
+  const opts = monthRange(earliest, curKey()).reverse().map(k =>
+    `<option value="${k}" ${k === viewMonth ? 'selected' : ''}>${monthLabel(k)}${k === curKey() ? ' (الحالي)' : ''}</option>`).join('');
+  ['attendance-month-select', 'filter-month-select'].forEach(id => { document.getElementById(id).innerHTML = opts; });
+}
+function changeMonth(v) { viewMonth = v; populateMonthSelects(); loadAttendanceList(); renderStudentsTable(); }
+
+const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+// ================= INIT / STORAGE =================
+const DEFAULT_TPL = JSON.parse(JSON.stringify(appData.templates));
+let keyHash = null, saveTimer = null, dirty = false;
+
+const normKey = k => k.trim().toUpperCase().replace(/\s+/g, '');
+async function sha256(t) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('nav-tabs').innerHTML = TABS.map(([id, ic, label], i) =>
+    `<button onclick="switchTab('${id}')" id="tab-${id}" class="tab-btn py-3 px-5 border-b-2 font-semibold text-sm flex items-center gap-2 whitespace-nowrap transition ${i === 0 ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'}"><i class="${ic}"></i> ${label}</button>`).join('');
+  document.getElementById('tpl-grid').innerHTML = TPL.map(([k, label, ic]) =>
+    `<div class="space-y-2 border border-slate-200 p-4 rounded-xl bg-slate-50"><label class="block font-bold text-sm flex items-center gap-2"><i class="fa-solid ${ic}"></i> ${label}</label>
+     <textarea id="tpl-${k}" rows="3" class="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm"></textarea></div>`).join('');
+
+  if (location.hash === '#admin') openAdmin();
+  const saved = localStorage.getItem('tk');
+  if (saved) { setLoginBusy(true); doLogin(saved).then(() => setLoginBusy(false)); }
+});
+
+// ================= LOGIN =================
+function setLoginBusy(b) {
+  const btn = document.getElementById('login-btn');
+  btn.disabled = b; btn.textContent = b ? 'جاري التحقق...' : 'دخول';
+}
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.classList.toggle('hidden', !msg);
+}
+async function handleLogin(e) {
+  e.preventDefault();
+  const k = normKey(document.getElementById('login-key').value);
+  if (!k) return;
+  setLoginBusy(true); showLoginError('');
+  const ok = await doLogin(await sha256(k));
+  setLoginBusy(false);
+  if (ok) document.getElementById('login-key').value = '';
+}
+async function doLogin(hash) {
+  try {
+    const data = await window.fb.login(hash);
+    keyHash = hash; localStorage.setItem('tk', hash);
+    appData.classes = (data && data.classes) || [];
+    appData.students = (data && data.students) || [];
+    appData.templates = { ...DEFAULT_TPL, ...((data && data.templates) || {}) };
+    viewMonth = curKey();
+    document.getElementById('login-screen').classList.add('hidden');
+    showLoginError('');
+    startApp();
+    return true;
+  } catch (e) {
+    console.error(e);
+    const denied = e && e.code === 'permission-denied';
+    if (denied) localStorage.removeItem('tk');
+    showLoginError(denied ? 'مفتاح الدخول غير صحيح أو تم إيقافه'
+      : (e && e.code === 'no-config') ? 'لم يتم ضبط إعدادات Firebase داخل الكود بعد'
+      : 'تعذر الاتصال بالسيرفر، تأكد من الإنترنت وحاول مرة أخرى');
+    return false;
+  }
+}
+function startApp() {
+  populateClassSelects(); renderClassesGrid(); renderTemplates(); switchTab('dashboard'); setSync('ok');
+}
+async function logout() {
+  if (!confirm('هل تريد تسجيل الخروج؟')) return;
+  if (dirty) await cloudSave();
+  window.fb.logout();
+  keyHash = null; localStorage.removeItem('tk');
+  appData.classes = []; appData.students = [];
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+// ================= CLOUD SAVE =================
+function saveToLocalStorage() {
+  updateDashboardStats();
+  dirty = true; setSync('saving');
+  clearTimeout(saveTimer); saveTimer = setTimeout(cloudSave, 700);
+}
+async function cloudSave() {
+  clearTimeout(saveTimer);
+  if (!keyHash) return;
+  try { await window.fb.save(appData); dirty = false; setSync('ok'); }
+  catch (e) { console.error(e); setSync('err'); }
+}
+function setSync(s) {
+  const el = document.getElementById('sync-status');
+  el.textContent = s === 'saving' ? '⏳ جاري الحفظ...' : s === 'ok' ? '☁️ تم الحفظ' : '⚠️ فشل الحفظ';
+}
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ================= ADMIN KEY GENERATOR =================
+function openAdmin() { document.getElementById('admin-panel').classList.remove('hidden'); }
+function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); history.replaceState(null, '', location.pathname); }
+function genKey() {
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = crypto.getRandomValues(new Uint8Array(16));
+  let s = ''; r.forEach((v, i) => { if (i && i % 4 === 0) s += '-'; s += a[v % 32]; });
+  document.getElementById('adm-key').value = s; hashKey();
+}
+async function hashKey() {
+  const k = normKey(document.getElementById('adm-key').value);
+  document.getElementById('adm-hash').value = k ? await sha256(k) : '';
+}
+function copyVal(id) { navigator.clipboard.writeText(document.getElementById(id).value); }
+
+// ================= TABS =================
+function switchTab(key) {
+  document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('border-brand-600', 'text-brand-600'); b.classList.add('border-transparent', 'text-slate-500');
+  });
+  document.getElementById('view-' + key).classList.remove('hidden');
+  const btn = document.getElementById('tab-' + key);
+  btn.classList.remove('border-transparent', 'text-slate-500'); btn.classList.add('border-brand-600', 'text-brand-600');
+  if (key === 'attendance') { populateClassSelects(); loadAttendanceList(); }
+  else if (key === 'students') { populateClassSelects(); renderStudentsTable(); }
+  else if (key === 'classes') renderClassesGrid();
+  else if (key === 'dashboard') updateDashboardStats();
+}
+
+function populateClassSelects() {
+  const opts = appData.classes.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const keep = document.getElementById('attendance-class-select').value;
+  document.getElementById('attendance-class-select').innerHTML = opts || '<option value="">لا يوجد صفوف مُتاحة</option>';
+  if (keep) document.getElementById('attendance-class-select').value = keep;
+  document.getElementById('filter-class-select').innerHTML = '<option value="ALL">جميع الصفوف الدراسية</option>' + opts;
+  document.getElementById('student-class-id').innerHTML = opts || '<option value="">يرجى إضافة صف أولاً</option>';
+  populateMonthSelects();
+}
+
+// ================= DASHBOARD =================
+function updateDashboardStats() {
+  const ck = curKey();
+  let p = 0, a = 0;
+  const cur = { PAID: 0, UNPAID: 0, PARTIAL: 0 }, gen = { PAID: 0, UNPAID: 0, PARTIAL: 0 }, byMonth = {};
+
+  appData.students.forEach(s => {
+    const m = getMonth(s, ck);
+    p += m.present; a += m.absent;
+    if (cur[m.payment] !== undefined) cur[m.payment]++;
+    studentMonths(s).forEach(k => {
+      const mm = getMonth(s, k);
+      const r = byMonth[k] = byMonth[k] || { PAID: 0, UNPAID: 0, PARTIAL: 0, present: 0, absent: 0 };
+      if (r[mm.payment] !== undefined) { r[mm.payment]++; gen[mm.payment]++; }
+      r.present += mm.present; r.absent += mm.absent;
+    });
+  });
+
+  const rate = (p + a) > 0 ? Math.round(p / (p + a) * 100) : 100;
+  const cards = [
+    ['إجمالي الطلاب', appData.students.length, 'text-slate-800', 'fa-users', 'bg-blue-50 text-blue-600'],
+    ['عدد الصفوف الدراسية', appData.classes.length, 'text-slate-800', 'fa-layer-group', 'bg-indigo-50 text-indigo-600'],
+    ['نسبة الحضور (الشهر الحالي)', rate + '%', 'text-brand-600', 'fa-chart-line', 'bg-green-50 text-brand-600'],
+    ['لم يدفعوا هذا الشهر', cur.UNPAID, 'text-amber-600', 'fa-hand-holding-dollar', 'bg-amber-50 text-amber-600']
+  ];
+  document.getElementById('stat-cards').innerHTML = cards.map(([l, v, tc, ic, bg]) =>
+    `<div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+      <div><p class="text-xs font-semibold text-slate-400 mb-1">${l}</p><h3 class="text-3xl font-extrabold ${tc}">${v}</h3></div>
+      <div class="w-12 h-12 rounded-xl ${bg} flex items-center justify-center text-xl"><i class="fa-solid ${ic}"></i></div></div>`).join('');
+
+  document.getElementById('current-month-label').textContent = monthLabel(ck);
+  const badge = { PAID: 'bg-green-100 text-green-700', UNPAID: 'bg-red-100 text-red-700', PARTIAL: 'bg-amber-100 text-amber-700' };
+  document.getElementById('cur-pay-summary').innerHTML = ['PAID', 'UNPAID', 'PARTIAL'].map(k =>
+    `<div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl"><span class="text-sm font-semibold text-slate-600">${PAY[k].t}</span>
+     <span class="px-3 py-1 ${badge[k]} rounded-full text-xs font-bold">${cur[k]} طالب</span></div>`).join('');
+
+  const box = { PAID: 'bg-green-50 text-green-700', UNPAID: 'bg-red-50 text-red-700', PARTIAL: 'bg-amber-50 text-amber-700' };
+  document.getElementById('gen-pay-summary').innerHTML = ['PAID', 'UNPAID', 'PARTIAL'].map(k =>
+    `<div class="p-3 ${box[k]} rounded-xl text-center"><p class="text-xs text-slate-500">${PAY[k].t}</p><p class="text-2xl font-extrabold">${gen[k]}</p></div>`).join('');
+
+  document.getElementById('monthly-summary-body').innerHTML = Object.keys(byMonth).sort().reverse().map(k => {
+    const r = byMonth[k];
+    return `<tr><td class="p-3 font-bold">${monthLabel(k)}${k === ck ? ' (الحالي)' : ''}</td>
+      <td class="p-3 text-green-700 font-bold">${r.PAID}</td><td class="p-3 text-red-700 font-bold">${r.UNPAID}</td>
+      <td class="p-3 text-amber-700 font-bold">${r.PARTIAL}</td><td class="p-3">${r.present}</td><td class="p-3">${r.absent}</td></tr>`;
+  }).join('');
+}
+
+// ================= CLASSES =================
+function renderClassesGrid() {
+  const grid = document.getElementById('classes-grid');
+  if (!appData.classes.length) {
+    grid.innerHTML = `<div class="col-span-full bg-white p-12 text-center rounded-2xl border border-slate-200">
+      <i class="fa-solid fa-layer-group text-4xl text-slate-300 mb-3"></i><p class="text-slate-500 font-semibold">لم تقم بإضافة أي صف دراسي حتى الآن</p>
+      <button onclick="openClassModal()" class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700">إضافة صف الآن</button></div>`;
+    return;
+  }
+  grid.innerHTML = appData.classes.map(c => {
+    const n = appData.students.filter(s => s.classId === c.id).length;
+    return `<div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
+      <div><div class="flex justify-between items-start"><h3 class="font-bold text-lg">${esc(c.name)}</h3>
+        <span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold">${n} طالب</span></div>
+        <p class="text-xs text-slate-500 mt-1">${esc(c.desc) || 'لا يوجد وصف مضاف'}</p></div>
+      <div class="flex gap-2 pt-3 border-t border-slate-100">
+        <button onclick="openClassModal('${c.id}')" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">تعديل الصف</button>
+        <button onclick="deleteClass('${c.id}')" class="py-2 px-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-semibold"><i class="fa-solid fa-trash-can"></i></button></div></div>`;
+  }).join('');
+}
+function openClassModal(id = null) {
+  document.getElementById('class-id').value = id || '';
+  const c = id ? appData.classes.find(x => x.id === id) : null;
+  document.getElementById('modal-class-title').textContent = c ? 'تعديل الصف الدراسي' : 'إضافة صف دراسي جديد';
+  document.getElementById('class-name').value = c ? c.name : '';
+  document.getElementById('class-desc').value = c ? (c.desc || '') : '';
+  document.getElementById('modal-class').classList.remove('hidden');
+}
+function closeClassModal() { document.getElementById('modal-class').classList.add('hidden'); }
+function handleSaveClass(e) {
+  e.preventDefault();
+  const id = document.getElementById('class-id').value;
+  const name = document.getElementById('class-name').value.trim(), desc = document.getElementById('class-desc').value.trim();
+  if (id) { const c = appData.classes.find(x => x.id === id); if (c) { c.name = name; c.desc = desc; } }
+  else appData.classes.push({ id: 'c_' + Date.now(), name, desc });
+  saveToLocalStorage(); closeClassModal(); renderClassesGrid(); populateClassSelects();
+}
+function deleteClass(id) {
+  if (confirm('هل أنت متأكد من حذف هذا الصف؟ لن يتم حذف الطلاب ولكن سيرتبطون بصف محذوف.')) {
+    appData.classes = appData.classes.filter(c => c.id !== id);
+    saveToLocalStorage(); renderClassesGrid(); populateClassSelects();
+  }
+}
+
+// ================= ATTENDANCE =================
+function loadAttendanceList() {
+  const classId = document.getElementById('attendance-class-select').value;
+  const box = document.getElementById('attendance-cards-container');
+  const empty = t => `<div class="col-span-full p-8 text-center bg-white rounded-2xl border text-slate-500">${t}</div>`;
+  if (!classId) { box.innerHTML = empty('يرجى اختيار صف دراسي أولاً'); return; }
+  const list = appData.students.filter(s => s.classId === classId);
+  if (!list.length) { box.innerHTML = empty('لا يوجد طلاب مسجلون في هذا الصف حتى الآن'); return; }
+
+  const btn = (fn, bg, ic, label) => `<button onclick="${fn}" class="py-2 px-2 ${bg} text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition"><i class="fa-solid ${ic}"></i> ${label}</button>`;
+  box.innerHTML = list.map(st => {
+    const s = monthView(st), pay = PAY[s.paymentStatus] || PAY.UNPAID;
+    return `<div class="bg-white p-5 rounded-2xl shadow-md border border-slate-200 flex flex-col justify-between space-y-4">
+      <div class="flex justify-between items-start">
+        <div><h3 class="font-bold text-slate-900 text-base mb-1">${esc(s.name)}</h3>
+          <p class="text-xs text-slate-500 font-mono flex items-center gap-1"><i class="fa-brands fa-whatsapp text-emerald-600"></i> ${esc(s.phone)}</p></div>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-bold border ${pay.c}">${pay.t}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl text-center border border-slate-100">
+        <div class="border-l border-slate-200"><span class="block text-[11px] font-bold text-slate-500 mb-0.5">حضور الشهر</span><span class="text-lg font-black text-emerald-600">${s.presentCount} يوم</span></div>
+        <div><span class="block text-[11px] font-bold text-slate-500 mb-0.5">غياب الشهر</span><span class="text-lg font-black text-red-600">${s.absentCount} يوم</span></div>
+      </div>
+      <div class="space-y-2.5">
+        <div class="grid grid-cols-2 gap-2">${btn(`markAndSend('${s.id}','PRESENT','STUDENT')`, 'bg-emerald-600 hover:bg-emerald-700', 'fa-check', 'حضر (الطالب)')}${btn(`markAndSend('${s.id}','PRESENT','PARENT')`, 'bg-emerald-800 hover:bg-emerald-900', 'fa-check-double', 'حضر (الوالد)')}</div>
+        <div class="grid grid-cols-2 gap-2">${btn(`markAndSend('${s.id}','ABSENT','STUDENT')`, 'bg-red-600 hover:bg-red-700', 'fa-xmark', 'غاب (الطالب)')}${btn(`markAndSend('${s.id}','ABSENT','PARENT')`, 'bg-red-800 hover:bg-red-900', 'fa-user-xmark', 'غاب (الوالد)')}</div>
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">${btn(`sendPaymentReminder('${s.id}','STUDENT')`, 'bg-amber-500 hover:bg-amber-600', 'fa-wallet', 'لم يدفع (الطالب)')}${btn(`sendPaymentReminder('${s.id}','PARENT')`, 'bg-amber-700 hover:bg-amber-800', 'fa-hand-holding-dollar', 'لم يدفع (الوالد)')}</div>
+        <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+          <label class="text-xs font-bold text-slate-600 whitespace-nowrap">حالة الدفع:</label>
+          <select onchange="setPayment('${s.id}', this.value)" class="flex-1 p-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold">
+            ${Object.keys(PAY).map(k => `<option value="${k}" ${k === s.paymentStatus ? 'selected' : ''}>${PAY[k].t}</option>`).join('')}</select>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setPayment(id, val) {
+  const s = appData.students.find(x => x.id === id); if (!s) return;
+  getMonth(s, viewMonth).payment = val;
+  saveToLocalStorage(); loadAttendanceList();
+}
+function markAndSend(id, type, who) {
+  const s = appData.students.find(x => x.id === id); if (!s) return;
+  const m = getMonth(s, viewMonth);
+  if (type === 'PRESENT') m.present += 1; else m.absent += 1;
+  saveToLocalStorage(); loadAttendanceList();
+  const key = (type === 'PRESENT' ? 'present' : 'absent') + (who === 'STUDENT' ? 'Student' : 'Parent');
+  sendWhatsAppMessage(s, key, who);
+}
+function sendPaymentReminder(id, who) {
+  const s = appData.students.find(x => x.id === id); if (!s) return;
+  sendWhatsAppMessage(s, who === 'STUDENT' ? 'unpaidStudent' : 'unpaidParent', who);
+}
+
+function sendWhatsAppMessage(student, key, who) {
+  const cls = appData.classes.find(c => c.id === student.classId), m = getMonth(student, viewMonth);
+  const msg = (appData.templates[key] || '')
+    .replace(/{اسم_الطالب}/g, student.name)
+    .replace(/{الصف}/g, cls ? cls.name : '')
+    .replace(/{عدد_الغياب}/g, m.absent)
+    .replace(/{عدد_الحضور}/g, m.present)
+    .replace(/{الشهر}/g, monthLabel(viewMonth));
+  let phone = (who === 'STUDENT' ? student.phone : (student.parentPhone || student.phone)).replace(/\D/g, '');
+  if (phone.startsWith('0')) phone = '2' + phone;
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// ================= STUDENTS =================
+function renderStudentsTable() {
+  const q = document.getElementById('search-student').value.toLowerCase().trim();
+  const cf = document.getElementById('filter-class-select').value, pf = document.getElementById('filter-payment-select').value;
+  const tbody = document.getElementById('students-table-body');
+  const rows = appData.students.filter(s =>
+    (s.name.toLowerCase().includes(q) || s.phone.includes(q)) &&
+    (cf === 'ALL' || s.classId === cf) &&
+    (pf === 'ALL' || getMonth(s, viewMonth).payment === pf));
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400">لا يوجد طلاب مطابقون للبحث</td></tr>'; return; }
+  tbody.innerHTML = rows.map(st => {
+    const s = monthView(st), cls = appData.classes.find(c => c.id === s.classId), pay = PAY[s.paymentStatus] || PAY.UNPAID;
+    return `<tr class="hover:bg-slate-50 transition">
+      <td class="p-4 font-bold">${esc(s.name)}</td><td class="p-4 text-slate-600">${cls ? esc(cls.name) : 'غير محدد'}</td>
+      <td class="p-4 font-mono text-xs text-slate-600" dir="ltr">${esc(s.phone)}</td><td class="p-4 font-mono text-xs text-slate-600" dir="ltr">${esc(s.parentPhone) || '-'}</td>
+      <td class="p-4 text-center"><span class="text-xs font-bold text-emerald-600">حضور: ${s.presentCount}</span> / <span class="text-xs font-bold text-red-600">غياب: ${s.absentCount}</span></td>
+      <td class="p-4 text-center"><span class="px-2.5 py-1 rounded-full text-xs font-bold border ${pay.c}">${pay.t}</span></td>
+      <td class="p-4 text-center"><button onclick="openStudentModal('${s.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-bold">تعديل</button>
+        <button onclick="deleteStudent('${s.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold">حذف</button></td></tr>`;
+  }).join('');
+}
+
+function openStudentModal(id = null) {
+  populateClassSelects();
+  document.getElementById('student-id').value = id || '';
+  const s = id ? appData.students.find(x => x.id === id) : null;
+  const m = s ? getMonth(s, viewMonth) : { present: 0, absent: 0, payment: 'UNPAID' };
+  document.getElementById('modal-student-title').textContent = s ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد';
+  document.getElementById('modal-month-label').textContent = monthLabel(viewMonth);
+  document.getElementById('student-name').value = s ? s.name : '';
+  if (s) document.getElementById('student-class-id').value = s.classId;
+  document.getElementById('student-phone').value = s ? s.phone : '';
+  document.getElementById('student-parent-phone').value = s ? (s.parentPhone || '') : '';
+  document.getElementById('student-absent-count').value = m.absent;
+  document.getElementById('student-present-count').value = m.present;
+  document.getElementById('student-payment').value = m.payment;
+  document.getElementById('modal-student').classList.remove('hidden');
+}
+function closeStudentModal() { document.getElementById('modal-student').classList.add('hidden'); }
+function handleSaveStudent(e) {
+  e.preventDefault();
+  const id = document.getElementById('student-id').value;
+  const monthData = {
+    present: parseInt(document.getElementById('student-present-count').value) || 0,
+    absent: parseInt(document.getElementById('student-absent-count').value) || 0,
+    payment: document.getElementById('student-payment').value
+  };
+  const f = {
+    name: document.getElementById('student-name').value.trim(),
+    classId: document.getElementById('student-class-id').value,
+    phone: document.getElementById('student-phone').value.trim(),
+    parentPhone: document.getElementById('student-parent-phone').value.trim()
+  };
+  if (id) {
+    const s = appData.students.find(x => x.id === id);
+    if (s) { Object.assign(s, f); ensureMonths(s); s.months[viewMonth] = monthData; }
+  } else {
+    appData.students.push({ id: 's_' + Date.now(), ...f, months: { [viewMonth]: monthData } });
+  }
+  saveToLocalStorage(); closeStudentModal(); renderStudentsTable(); populateMonthSelects();
+}
+function deleteStudent(id) {
+  if (confirm('هل أنت متأكد من حذف هذا الطالب نهائياً؟')) {
+    appData.students = appData.students.filter(s => s.id !== id);
+    saveToLocalStorage(); renderStudentsTable();
+  }
+}
+
+// ================= TEMPLATES =================
+function renderTemplates() { TPL.forEach(([k]) => { document.getElementById('tpl-' + k).value = appData.templates[k] || ''; }); }
+function saveTemplates() {
+  TPL.forEach(([k]) => { appData.templates[k] = document.getElementById('tpl-' + k).value; });
+  saveToLocalStorage(); alert('تم حفظ كافة قوالب الرسائل بنجاح!');
+}
+
+// ================= EXPORT / IMPORT =================
+function exportData() {
+  const a = document.createElement('a');
+  a.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(appData, null, 2));
+  a.download = `teacher_backup_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+}
+function importData(event) {
+  const fr = new FileReader();
+  fr.onload = async e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (d.classes && d.students) { appData = { ...appData, ...d, templates: { ...appData.templates, ...(d.templates || {}) } }; await cloudSave(); location.reload(); }
+      else alert('الملف غير صحيح أو لا يحتوي على بنية البيانات المطلوبة.');
+    } catch (err) { alert('حدث خطأ أثناء قراءة الملف.'); }
+  };
+  fr.readAsText(event.target.files[0]);
+}
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ===== الصق هنا إعدادات مشروع Firebase الخاص بك =====
+const firebaseConfig = { 
+    apiKey: "AIzaSyBky6Dy-MY1f_dz3CvUZsBe2AF08dBRfiU",
+  authDomain: "teacher-platform-39256.firebaseapp.com",
+  projectId: "teacher-platform-39256",
+  storageBucket: "teacher-platform-39256.firebasestorage.app",
+  messagingSenderId: "591708682941",
+  appId: "1:591708682941:web:e6d26763a1c79b3c7215d4",
+  measurementId: "G-BFE5BB6256"
+};
+
+const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
+let ref = null;
+window.fb = {
+  async login(hash) {
+    if (firebaseConfig.apiKey.startsWith("PASTE")) throw Object.assign(new Error("no config"), { code: "no-config" });
+    if (!auth.currentUser) await signInAnonymously(auth);
+    ref = doc(db, "teachers", hash);
+    const snap = await getDoc(ref);          // يرفض السيرفر لو المفتاح غير مسجل
+    return snap.exists() ? snap.data() : null;
+  },
+  async save(data) { await setDoc(ref, JSON.parse(JSON.stringify(data))); },
+  logout() { ref = null; auth.signOut(); }
+};
+</script>
+</body>
+</html>
