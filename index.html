@@ -398,7 +398,7 @@ async function doLogin(hash) {
   }
 }
 function startApp() {
-  populateClassSelects(); renderClassesGrid(); renderTemplates(); switchTab('dashboard'); setSync('ok');
+  populateClassSelects(); renderClassesGrid(); renderTemplates(); switchTab('dashboard'); setSync('ok'); window.fb.listen(onRemoteData);
 }
 async function logout() {
   if (!confirm('هل تريد تسجيل الخروج؟')) return;
@@ -407,6 +407,25 @@ async function logout() {
   keyHash = null; localStorage.removeItem('tk');
   appData.classes = []; appData.students = [];
   document.getElementById('login-screen').classList.remove('hidden');
+}
+
+// ================= مزامنة لحظية =================
+function onRemoteData(data, pending) {
+  if (pending || dirty || !data) return;           // تجاهل صدى تعديلاتي أنا، أو لو عندي تعديل لسه بيتحفظ
+  const g = id => document.getElementById(id);
+  appData.classes = data.classes || [];
+  appData.students = data.students || [];
+  appData.templates = { ...DEFAULT_TPL, ...(data.templates || {}) };
+  const active = (TABS.find(([id]) => !g('view-' + id).classList.contains('hidden')) || ['dashboard'])[0];
+  const fc = g('filter-class-select').value, sc = g('student-class-id').value;
+  updateDashboardStats(); renderClassesGrid(); populateClassSelects();
+  if (fc) g('filter-class-select').value = fc;
+  if (sc) g('student-class-id').value = sc;
+  if (active === 'attendance') loadAttendanceList();
+  if (active === 'students') renderStudentsTable();
+  if (active === 'templates' && document.activeElement.tagName !== 'TEXTAREA') renderTemplates();
+  g('sync-status').textContent = '🔄 وصل تحديث جديد';
+  setTimeout(() => setSync('ok'), 2500);
 }
 
 // ================= CLOUD SAVE =================
@@ -722,21 +741,18 @@ function importData(event) {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===== الصق هنا إعدادات مشروع Firebase الخاص بك =====
-const firebaseConfig = { 
-    apiKey: "AIzaSyBky6Dy-MY1f_dz3CvUZsBe2AF08dBRfiU",
+const firebaseConfig = {
+  apiKey: "AIzaSyBky6Dy-MY1f_dz3CvUZsBe2AF08dBRfiU",
   authDomain: "teacher-platform-39256.firebaseapp.com",
   projectId: "teacher-platform-39256",
-  storageBucket: "teacher-platform-39256.firebasestorage.app",
-  messagingSenderId: "591708682941",
-  appId: "1:591708682941:web:e6d26763a1c79b3c7215d4",
-  measurementId: "G-BFE5BB6256"
+  appId: "1:591708682941:web:e6d26763a1c79b3c7215d4"
 };
 
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
-let ref = null;
+let ref = null, unsub = null;
 window.fb = {
   async login(hash) {
     if (firebaseConfig.apiKey.startsWith("PASTE")) throw Object.assign(new Error("no config"), { code: "no-config" });
@@ -746,7 +762,8 @@ window.fb = {
     return snap.exists() ? snap.data() : null;
   },
   async save(data) { await setDoc(ref, JSON.parse(JSON.stringify(data))); },
-  logout() { ref = null; auth.signOut(); }
+  listen(cb) { if (unsub) unsub(); unsub = onSnapshot(ref, s => cb(s.exists() ? s.data() : null, s.metadata.hasPendingWrites)); },
+  logout() { if (unsub) unsub(); unsub = null; ref = null; auth.signOut(); }
 };
 </script>
 </body>
