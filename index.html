@@ -18,34 +18,18 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
   <div class="bg-white rounded-2xl max-w-sm w-full p-8 shadow-2xl text-center space-y-5">
     <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-600 text-white flex items-center justify-center text-3xl shadow-md"><i class="fa-solid fa-graduation-cap"></i></div>
     <div><h1 class="text-xl font-extrabold text-slate-800">منصة المُعلّم الذكي</h1>
-      <p class="text-xs text-slate-500 mt-1">ادخل مفتاح الدخول الخاص بك للمتابعة</p></div>
+      <p class="text-xs text-slate-500 mt-1">سجّل الدخول أو أنشئ حساباً جديداً</p></div>
     <form onsubmit="handleLogin(event)" class="space-y-3">
-      <input id="login-key" type="text" dir="ltr" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="مفتاح الدخول"
-        class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-center font-mono tracking-widest uppercase focus:ring-brand-500 focus:border-brand-500">
+      <input id="login-name" placeholder="اسمك" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-center focus:ring-brand-500 focus:border-brand-500" style="display:none">
+      <input id="login-email" type="email" dir="ltr" required placeholder="البريد الإلكتروني" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-center focus:ring-brand-500 focus:border-brand-500">
+      <input id="login-pass" type="password" dir="ltr" required minlength="6" placeholder="كلمة المرور" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-center focus:ring-brand-500 focus:border-brand-500">
       <p id="login-error" class="text-red-600 text-xs font-semibold hidden"></p>
       <button id="login-btn" type="submit" class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl transition disabled:opacity-60">دخول</button>
+      <div class="flex justify-between text-xs"><button type="button" id="login-toggle" onclick="toggleSignup()" class="text-brand-700 font-bold">حساب جديد (14 يوم تجربة مجانية)</button><button type="button" onclick="resetPw()" class="text-slate-500">نسيت كلمة المرور؟</button></div>
     </form>
-    <p class="text-[11px] text-slate-400">للحصول على مفتاح دخول تواصل مع مسؤول المنصة</p>
+    
   </div>
 </div>
-
-<!-- ADMIN KEY GENERATOR (افتح الرابط مع #admin) -->
-<div id="admin-panel" class="fixed inset-0 z-[110] bg-slate-900/90 flex items-center justify-center p-4 hidden">
-  <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-    <div class="flex justify-between items-center border-b pb-3">
-      <h3 class="font-bold text-lg">مولّد مفاتيح الدخول (للمسؤول)</h3>
-      <button onclick="closeAdmin()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <button onclick="genKey()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm">توليد مفتاح جديد عشوائي</button>
-    <div><label class="block text-xs font-bold mb-1">مفتاح الدخول (اعطيه للمدرس)</label>
-      <div class="flex gap-2"><input id="adm-key" dir="ltr" oninput="hashKey()" class="flex-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono">
-      <button onclick="copyVal('adm-key')" class="px-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">نسخ</button></div></div>
-    <div><label class="block text-xs font-bold mb-1">البصمة (تتحط في Firebase كـ Document ID داخل allowedKeys)</label>
-      <div class="flex gap-2"><input id="adm-hash" dir="ltr" readonly class="flex-1 p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-[11px] font-mono">
-      <button onclick="copyVal('adm-hash')" class="px-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">نسخ</button></div></div>
-  </div>
-</div>
-
 
 <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -68,11 +52,13 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
   <div id="nav-tabs" class="max-w-7xl mx-auto px-4 flex overflow-x-auto no-scrollbar gap-2"></div>
 </nav>
 
+<div id="access-banner" class="hidden"></div>
 <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full">
 
 <!-- DASHBOARD -->
 <section id="view-dashboard" class="view-section space-y-6">
   <div id="stat-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+  <div id="alerts-card" class="hidden bg-red-50 border border-red-200 p-5 rounded-2xl"><h3 class="font-bold text-red-800 mb-3"><i class="fa-solid fa-triangle-exclamation"></i> تنبيهات تحتاج متابعة</h3><div id="alerts-box" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm"></div></div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -131,16 +117,17 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <label class="text-sm font-semibold whitespace-nowrap">الشهر:</label>
-        <select id="attendance-month-select" onchange="changeMonth(this.value)" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 font-semibold"></select>
+        <select id="attendance-month-select" onchange="changeMonth(this.value)" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 font-semibold"></select><label class="text-sm font-semibold whitespace-nowrap mr-2">اليوم:</label><input type="date" id="attendance-date" onchange="changeDate(this.value)" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 font-semibold">
         <label class="text-sm font-semibold whitespace-nowrap mr-2">الصف الدراسي:</label>
         <select id="attendance-class-select" onchange="loadAttendanceList()" class="bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 min-w-[180px] font-semibold"></select>
       </div>
     </div>
     <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-indigo-900 text-xs flex items-center gap-2">
       <i class="fa-solid fa-circle-info text-indigo-600 text-base"></i>
-      <span>الحضور والغياب والدفع بيتسجلوا على الشهر المختار، وكل شهر جديد بيبدأ من صفر وحالة "لم يدفع" تلقائيًا.</span>
+      <span>الحضور بيتسجل لكل يوم على حدة (اضغط نفس الزر تاني للتراجع). رسائل الواتساب منفصلة عن التسجيل فلا يتكرر العدّ.</span>
     </div>
   </div>
+  <div class="flex flex-wrap gap-2"><button onclick="bulkDay('P')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold"><i class="fa-solid fa-check-double"></i> الكل حاضر (غير المسجلين)</button><button onclick="bulkDay('')" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-xl text-sm font-bold">مسح تسجيل اليوم</button></div>
   <div id="attendance-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 </section>
 
@@ -154,7 +141,7 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
       </div>
       <button onclick="openStudentModal()" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl flex items-center justify-center gap-2"><i class="fa-solid fa-user-plus"></i> إضافة طالب جديد</button>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2">
       <select id="filter-month-select" onchange="changeMonth(this.value)" class="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm"></select>
       <div class="relative">
         <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-3 text-slate-400"></i>
@@ -164,6 +151,8 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
       <select id="filter-payment-select" onchange="renderStudentsTable()" class="w-full py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm">
         <option value="ALL">جميع حالات الدفع</option><option value="PAID">مدفوع</option><option value="UNPAID">لم يدفع</option><option value="PARTIAL">دفع جزئي</option>
       </select>
+      <div class="flex gap-2"><select id="filter-arch-select" onchange="renderStudentsTable()" class="flex-1 py-2 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm"><option value="ACT">النشطون</option><option value="ARCH">المؤرشفون</option></select>
+      <button onclick="exportCSV()" class="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold" title="تصدير تقرير الشهر Excel"><i class="fa-solid fa-file-excel"></i> Excel</button></div>
     </div>
   </div>
   <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -179,6 +168,9 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
   </div>
 </section>
 
+<section id="view-admin" class="view-section space-y-4 hidden"><div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+  <h2 class="text-xl font-bold mb-1">إدارة المدرسين <span id="admin-count" class="text-sm text-slate-400"></span></h2><p class="text-xs text-slate-500 mb-4">تفعيل الاشتراكات يدويًا (المرحلة 1)</p>
+  <div class="overflow-x-auto"><table class="w-full text-right text-sm"><thead class="bg-slate-50 border-b"><tr><th class="p-3">المدرس</th><th class="p-3">الإيميل</th><th class="p-3">الحالة</th><th class="p-3">ينتهي</th><th class="p-3">إجراءات</th></tr></thead><tbody id="admin-body" class="divide-y"></tbody></table></div></div></section>
 <!-- TEMPLATES -->
 <section id="view-templates" class="view-section space-y-6 hidden">
   <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -188,7 +180,7 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
       <p class="font-bold flex items-center gap-2"><i class="fa-solid fa-code"></i> المتغيرات المتاحة (عدد الحضور والغياب يخص الشهر المختار):</p>
       <div class="flex flex-wrap gap-2 pt-1">
         <code class="bg-amber-100 px-2 py-1 rounded">{اسم_الطالب}</code><code class="bg-amber-100 px-2 py-1 rounded">{الصف}</code>
-        <code class="bg-amber-100 px-2 py-1 rounded">{عدد_الغياب}</code><code class="bg-amber-100 px-2 py-1 rounded">{عدد_الحضور}</code><code class="bg-amber-100 px-2 py-1 rounded">{الشهر}</code>
+        <code class="bg-amber-100 px-2 py-1 rounded">{عدد_الغياب}</code><code class="bg-amber-100 px-2 py-1 rounded">{عدد_الحضور}</code><code class="bg-amber-100 px-2 py-1 rounded">{الشهر}</code><code class="bg-amber-100 px-2 py-1 rounded">{نسبة_الحضور}</code><code class="bg-amber-100 px-2 py-1 rounded">{المدفوع}</code><code class="bg-amber-100 px-2 py-1 rounded">{المتبقي}</code>
       </div>
     </div>
     <div id="tpl-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
@@ -212,6 +204,8 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
         <input type="text" id="class-name" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="أدخل اسم الصف..."></div>
       <div><label class="block text-xs font-bold mb-1">وصف أو مواعيد الحصص (اختياري)</label>
         <input type="text" id="class-desc" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="مثال: السبت والأربعاء الساعة 4 مساءً"></div>
+      <div><label class="block text-xs font-bold mb-1">سعر الاشتراك الشهري (اختياري)</label>
+        <input type="number" min="0" id="class-fee" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="مثال: 300"></div>
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeClassModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm font-semibold hover:bg-slate-200">إلغاء</button>
         <button type="submit" class="px-5 py-2 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700">حفظ الصف</button>
@@ -239,7 +233,7 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
         <div><label class="block text-xs font-bold mb-1">رقم ولي الأمر</label>
           <input type="text" id="student-parent-phone" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm" placeholder="010XXXXXXXX"></div>
       </div>
-      <p class="text-xs font-bold text-indigo-700 bg-indigo-50 rounded-lg p-2">بيانات شهر: <span id="modal-month-label"></span></p>
+      <p class="text-xs font-bold text-indigo-700 bg-indigo-50 rounded-lg p-2">بيانات شهر: <span id="modal-month-label"></span> <span class="font-normal text-slate-500">(الأيام هنا إضافة فوق سجل الحضور اليومي)</span></p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div><label class="block text-xs font-bold mb-1">أيام الغياب</label>
           <input type="number" id="student-absent-count" min="0" value="0" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm"></div>
@@ -249,6 +243,7 @@ tailwind.config={theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']},colors
           <select id="student-payment" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm">
             <option value="PAID">تم الدفع</option><option value="UNPAID">لم يدفع</option><option value="PARTIAL">دفع جزئي</option></select></div>
       </div>
+      <div><label class="block text-xs font-bold mb-1">المبلغ المدفوع هذا الشهر</label><input type="number" min="0" id="student-paid" value="0" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm"></div>
       <div class="flex justify-end gap-2 pt-2 border-t">
         <button type="button" onclick="closeStudentModal()" class="px-4 py-2 bg-slate-100 rounded-xl text-sm font-semibold hover:bg-slate-200">إلغاء</button>
         <button type="submit" class="px-5 py-2 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700">حفظ الطالب</button>
@@ -277,7 +272,9 @@ const TPL = [
   ['absentStudent','رسالة الغياب - للطالب','fa-circle-xmark text-red-600'],
   ['absentParent','رسالة الغياب - لولي الأمر','fa-circle-xmark text-red-600'],
   ['unpaidStudent','رسالة عدم الدفع - للطالب','fa-credit-card text-amber-600'],
-  ['unpaidParent','رسالة عدم الدفع - لولي الأمر','fa-credit-card text-amber-600']
+  ['unpaidParent','رسالة عدم الدفع - لولي الأمر','fa-credit-card text-amber-600'],
+  ['reportParent','تقرير الشهر - لولي الأمر','fa-chart-line text-indigo-600'],
+  ['receiptParent','إيصال دفع - لولي الأمر','fa-receipt text-green-600']
 ];
 const MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
@@ -290,7 +287,9 @@ let appData = {
     absentStudent: "أهلاً بك يا {اسم_الطالب} 👋 لاحظنا غيابك اليوم عن حصة {الصف}. نتمنى أن تكون بخير، ونذكرك بأن الحضور المنتظم هو سر تميزك. ننتظرك الحصة القادمة! 🌟",
     absentParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 نود إحاطتكم بعلم غياب الطالب اليوم عن حصة {الصف}. نرجو المتابعة حرصاً على مستواه الدراسي. (إجمالي الغياب هذا الشهر: {عدد_الغياب} يوم).",
     unpaidStudent: "أهلاً بك يا {اسم_الطالب} 👋 نذكرك بلطف بضرورة سداد المصروفات الشهرية لحصة {الصف}. شاكرين تعاونك معنا! ✨",
-    unpaidParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 نود تذكيركم بلطف بموعد سداد الاشتراك الشهري الخاص بـ {الصف}. شاكرين حسن تعاونكم معنا مقدماً."
+    unpaidParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 نود تذكيركم بلطف بموعد سداد الاشتراك الشهري الخاص بـ {الصف}. شاكرين حسن تعاونكم معنا مقدماً.",
+    reportParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 تقرير شهر {الشهر} لحصة {الصف}: الحضور {عدد_الحضور} يوم، الغياب {عدد_الغياب} يوم، نسبة الحضور {نسبة_الحضور}. المتبقي من المصروفات: {المتبقي}. شاكرين متابعتكم 📊",
+    receiptParent: "مرحباً بولي أمر الطالب {اسم_الطالب} 👋 تم استلام مبلغ {المدفوع} عن شهر {الشهر} ({الصف}). المتبقي: {المتبقي}. شكراً لكم 🧾"
   }
 };
 
@@ -315,10 +314,14 @@ function ensureMonths(s) {
 // أي شهر جديد يبدأ من صفر و"لم يدفع"
 function getMonth(s, k) {
   const ms = ensureMonths(s);
-  if (!ms[k]) ms[k] = { present: 0, absent: 0, payment: 'UNPAID' };
-  return ms[k];
+  return ms[k] || { present: 0, absent: 0, payment: 'UNPAID', days: {}, paid: 0 };
 }
-function monthView(s) { const m = getMonth(s, viewMonth); return { ...s, presentCount: m.present, absentCount: m.absent, paymentStatus: m.payment }; }
+function mut(s, k) { const ms = ensureMonths(s); if (!ms[k]) ms[k] = { present: 0, absent: 0, payment: 'UNPAID', days: {}, paid: 0 }; return ms[k]; }
+const dayCount = (m, f) => Object.values(m.days || {}).filter(f).length;
+const P = m => (m.present || 0) + dayCount(m, v => v === 'P' || v === 'L');
+const A = m => (m.absent || 0) + dayCount(m, v => v === 'A');
+const act = () => appData.students.filter(s => !s.archived);
+function monthView(s) { const m = getMonth(s, viewMonth); return { ...s, presentCount: P(m), absentCount: A(m), paymentStatus: m.payment }; }
 function studentMonths(s) {
   const ks = Object.keys(ensureMonths(s)).sort();
   const start = ks[0] && ks[0] < curKey() ? ks[0] : curKey();
@@ -330,8 +333,9 @@ function populateMonthSelects() {
   const opts = monthRange(earliest, curKey()).reverse().map(k =>
     `<option value="${k}" ${k === viewMonth ? 'selected' : ''}>${monthLabel(k)}${k === curKey() ? ' (الحالي)' : ''}</option>`).join('');
   ['attendance-month-select', 'filter-month-select'].forEach(id => { document.getElementById(id).innerHTML = opts; });
+  const di = document.getElementById('attendance-date'); if (di) di.value = attDate;
 }
-function changeMonth(v) { viewMonth = v; populateMonthSelects(); loadAttendanceList(); renderStudentsTable(); }
+function changeMonth(v) { viewMonth = v; attDate = v === curKey() ? todayStr() : v + '-01'; populateMonthSelects(); loadAttendanceList(); renderStudentsTable(); }
 
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
@@ -352,80 +356,73 @@ window.addEventListener('DOMContentLoaded', () => {
     `<div class="space-y-2 border border-slate-200 p-4 rounded-xl bg-slate-50"><label class="block font-bold text-sm flex items-center gap-2"><i class="fa-solid ${ic}"></i> ${label}</label>
      <textarea id="tpl-${k}" rows="3" class="w-full p-3 bg-white border border-slate-300 rounded-xl text-sm"></textarea></div>`).join('');
 
-  if (location.hash === '#admin') openAdmin();
-  const saved = localStorage.getItem('tk');
-  if (saved) { setLoginBusy(true); doLogin(saved).then(() => setLoginBusy(false)); }
+  setLoginBusy(true); window.fb.onAuth(u => { if (u) enter(); else setLoginBusy(false); });
 });
 
 // ================= LOGIN =================
-function setLoginBusy(b) {
-  const btn = document.getElementById('login-btn');
-  btn.disabled = b; btn.textContent = b ? 'جاري التحقق...' : 'دخول';
+const SUPPORT_PHONE = '201552973130'; // رقم واتساب الدعم لتجديد الاشتراك
+let signupMode = false, me = null, access = true;
+function setLoginBusy(b) { const x = document.getElementById('login-btn'); x.disabled = b; x.textContent = b ? 'جاري التحميل...' : (signupMode ? 'إنشاء الحساب' : 'دخول'); }
+function showLoginError(m) { const e = document.getElementById('login-error'); e.textContent = m; e.classList.toggle('hidden', !m); }
+function toggleSignup() {
+  signupMode = !signupMode;
+  document.getElementById('login-name').style.display = signupMode ? '' : 'none';
+  document.getElementById('login-name').required = signupMode;
+  document.getElementById('login-toggle').textContent = signupMode ? 'لدي حساب بالفعل' : 'حساب جديد (14 يوم تجربة مجانية)';
+  setLoginBusy(false); showLoginError('');
 }
-function showLoginError(msg) {
-  const el = document.getElementById('login-error');
-  el.textContent = msg; el.classList.toggle('hidden', !msg);
-}
+const authMsg = c => ({ 'auth/invalid-credential': 'الإيميل أو كلمة المرور غير صحيحة', 'auth/wrong-password': 'الإيميل أو كلمة المرور غير صحيحة', 'auth/user-not-found': 'الإيميل أو كلمة المرور غير صحيحة',
+  'auth/email-already-in-use': 'هذا الإيميل مسجل بالفعل', 'auth/weak-password': 'كلمة المرور ضعيفة (6 أحرف على الأقل)', 'auth/too-many-requests': 'محاولات كثيرة، حاول بعد قليل' }[c] || 'تعذر الاتصال بالسيرفر، حاول مرة أخرى');
 async function handleLogin(e) {
-  e.preventDefault();
-  const k = normKey(document.getElementById('login-key').value);
-  if (!k) return;
+  e.preventDefault(); const g = x => document.getElementById(x).value.trim();
   setLoginBusy(true); showLoginError('');
-  const ok = await doLogin(await sha256(k));
-  setLoginBusy(false);
-  if (ok) document.getElementById('login-key').value = '';
+  try { if (signupMode) await window.fb.signup(g('login-name'), g('login-email'), document.getElementById('login-pass').value); else await window.fb.signin(g('login-email'), document.getElementById('login-pass').value); }
+  catch (err) { console.error(err); showLoginError(authMsg(err.code)); setLoginBusy(false); }
 }
-async function doLogin(hash) {
+async function resetPw() {
+  const em = document.getElementById('login-email').value.trim(); if (!em) return showLoginError('اكتب الإيميل أولًا');
+  try { await window.fb.reset(em); showLoginError(''); toast('تم إرسال رابط استعادة كلمة المرور'); } catch (e) { showLoginError(authMsg(e.code)); }
+}
+async function enter() {
   try {
-    const data = await window.fb.login(hash);
-    keyHash = hash; localStorage.setItem('tk', hash);
-    appData.classes = (data && data.classes) || [];
-    appData.students = (data && data.students) || [];
-    appData.templates = { ...DEFAULT_TPL, ...((data && data.templates) || {}) };
-    viewMonth = curKey();
-    document.getElementById('login-screen').classList.add('hidden');
-    showLoginError('');
-    startApp();
-    return true;
-  } catch (e) {
-    console.error(e);
-    const denied = e && e.code === 'permission-denied';
-    if (denied) localStorage.removeItem('tk');
-    showLoginError(denied ? 'مفتاح الدخول غير صحيح أو تم إيقافه'
-      : (e && e.code === 'no-config') ? 'لم يتم ضبط إعدادات Firebase داخل الكود بعد'
-      : 'تعذر الاتصال بالسيرفر، تأكد من الإنترنت وحاول مرة أخرى');
-    return false;
-  }
+    const r = await window.fb.load(); if (!r.profile) throw new Error('no profile');
+    me = r.profile; applyData(r.data);
+    access = !me.suspended && me.accessUntil.toMillis() > Date.now();
+    viewMonth = curKey(); attDate = todayStr(); keyHash = 'u';
+    document.getElementById('login-screen').classList.add('hidden'); showLoginError('');
+    startApp(); renderAccessBanner();
+    if (await window.fb.isAdmin()) document.getElementById('nav-tabs').insertAdjacentHTML('beforeend', `<button onclick="switchTab('admin')" id="tab-admin" class="tab-btn py-3 px-5 border-b-2 border-transparent text-slate-500 font-semibold text-sm flex items-center gap-2 whitespace-nowrap"><i class="fa-solid fa-user-shield"></i> إدارة المدرسين</button>`);
+  } catch (e) { console.error(e); showLoginError('تعذر تحميل حسابك، حاول مرة أخرى'); } setLoginBusy(false);
 }
+function renderAccessBanner() {
+  const b = document.getElementById('access-banner'), days = Math.ceil((me.accessUntil.toMillis() - Date.now()) / 864e5);
+  const wa = `<a class="underline font-bold" target="_blank" href="https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent('أريد تجديد اشتراكي: ' + me.email)}">تواصل للتجديد</a>`;
+  b.className = access ? (days <= 7 ? 'bg-amber-100 text-amber-900 text-center text-sm py-2' : 'hidden') : 'bg-red-600 text-white text-center text-sm py-2';
+  b.innerHTML = !access ? `⛔ ${me.suspended ? 'الحساب موقوف' : 'انتهى اشتراكك'}: عرض وتصدير البيانات فقط، والحفظ متوقف. ${wa}` : `⏳ يتبقى ${days} يوم على انتهاء الاشتراك. ${wa}`;
+}
+async function renderAdmin() {
+  const list = await window.fb.listTeachers(), now = Date.now();
+  document.getElementById('admin-count').textContent = '(' + list.length + ')';
+  document.getElementById('admin-body').innerHTML = list.sort((a, b) => b.accessUntil.toMillis() - a.accessUntil.toMillis()).map(t => {
+    const ok = !t.suspended && t.accessUntil.toMillis() > now;
+    return `<tr><td class="p-3 font-bold">${esc(t.name)}</td><td class="p-3 font-mono text-xs" dir="ltr">${esc(t.email)}</td>
+      <td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-bold ${ok ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${t.suspended ? 'موقوف' : ok ? 'فعّال' : 'منتهي'}</span></td>
+      <td class="p-3 text-xs">${t.accessUntil.toDate().toLocaleDateString('ar-EG')}</td>
+      <td class="p-3 whitespace-nowrap"><button onclick="adminExtend('${t.id}',30)" class="px-2 py-1 text-xs font-bold text-green-700 hover:bg-green-50 rounded">+30</button><button onclick="adminExtend('${t.id}',365)" class="px-2 py-1 text-xs font-bold text-green-700 hover:bg-green-50 rounded">+365</button><button onclick="adminSuspend('${t.id}',${!t.suspended})" class="px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded">${t.suspended ? 'تفعيل' : 'إيقاف'}</button></td></tr>`;
+  }).join('');
+}
+async function adminExtend(id, d) { await window.fb.extend(id, d); toast('تم التمديد'); renderAdmin(); }
+async function adminSuspend(id, v) { await window.fb.suspend(id, v); renderAdmin(); }
 function startApp() {
-  populateClassSelects(); renderClassesGrid(); renderTemplates(); switchTab('dashboard'); setSync('ok'); window.fb.listen(onRemoteData);
+  populateClassSelects(); renderClassesGrid(); renderTemplates(); switchTab('dashboard'); setSync('ok'); autoBackup();
 }
 async function logout() {
   if (!confirm('هل تريد تسجيل الخروج؟')) return;
   if (dirty) await cloudSave();
   window.fb.logout();
-  keyHash = null; localStorage.removeItem('tk');
+  keyHash = null; me = null; const at = document.getElementById('tab-admin'); if (at) at.remove();
   appData.classes = []; appData.students = [];
   document.getElementById('login-screen').classList.remove('hidden');
-}
-
-// ================= مزامنة لحظية =================
-function onRemoteData(data, pending) {
-  if (pending || dirty || !data) return;           // تجاهل صدى تعديلاتي أنا، أو لو عندي تعديل لسه بيتحفظ
-  const g = id => document.getElementById(id);
-  appData.classes = data.classes || [];
-  appData.students = data.students || [];
-  appData.templates = { ...DEFAULT_TPL, ...(data.templates || {}) };
-  const active = (TABS.find(([id]) => !g('view-' + id).classList.contains('hidden')) || ['dashboard'])[0];
-  const fc = g('filter-class-select').value, sc = g('student-class-id').value;
-  updateDashboardStats(); renderClassesGrid(); populateClassSelects();
-  if (fc) g('filter-class-select').value = fc;
-  if (sc) g('student-class-id').value = sc;
-  if (active === 'attendance') loadAttendanceList();
-  if (active === 'students') renderStudentsTable();
-  if (active === 'templates' && document.activeElement.tagName !== 'TEXTAREA') renderTemplates();
-  g('sync-status').textContent = '🔄 وصل تحديث جديد';
-  setTimeout(() => setSync('ok'), 2500);
 }
 
 // ================= CLOUD SAVE =================
@@ -434,11 +431,20 @@ function saveToLocalStorage() {
   dirty = true; setSync('saving');
   clearTimeout(saveTimer); saveTimer = setTimeout(cloudSave, 700);
 }
+function applyData(d) {
+  appData.classes = (d && d.classes) || []; appData.students = (d && d.students) || [];
+  appData.templates = { ...DEFAULT_TPL, ...((d && d.templates) || {}) };
+}
 async function cloudSave() {
   clearTimeout(saveTimer);
   if (!keyHash) return;
+  if (!access) { toast('الاشتراك منتهي: لا يتم حفظ التعديلات', true); setSync('err'); return; }
   try { await window.fb.save(appData); dirty = false; setSync('ok'); }
   catch (e) { console.error(e); setSync('err'); }
+}
+function autoBackup() {
+  const l = +localStorage.getItem('lb') || 0;
+  if (Date.now() - l > 6048e5 && appData.students.length) { localStorage.setItem('lb', Date.now()); exportData(); }
 }
 function setSync(s) {
   const el = document.getElementById('sync-status');
@@ -473,6 +479,7 @@ function switchTab(key) {
   else if (key === 'students') { populateClassSelects(); renderStudentsTable(); }
   else if (key === 'classes') renderClassesGrid();
   else if (key === 'dashboard') updateDashboardStats();
+  else if (key === 'admin') renderAdmin();
 }
 
 function populateClassSelects() {
@@ -487,25 +494,26 @@ function populateClassSelects() {
 
 // ================= DASHBOARD =================
 function updateDashboardStats() {
+  renderAlerts();
   const ck = curKey();
   let p = 0, a = 0;
   const cur = { PAID: 0, UNPAID: 0, PARTIAL: 0 }, gen = { PAID: 0, UNPAID: 0, PARTIAL: 0 }, byMonth = {};
 
-  appData.students.forEach(s => {
+  act().forEach(s => {
     const m = getMonth(s, ck);
-    p += m.present; a += m.absent;
+    p += P(m); a += A(m);
     if (cur[m.payment] !== undefined) cur[m.payment]++;
     studentMonths(s).forEach(k => {
       const mm = getMonth(s, k);
       const r = byMonth[k] = byMonth[k] || { PAID: 0, UNPAID: 0, PARTIAL: 0, present: 0, absent: 0 };
       if (r[mm.payment] !== undefined) { r[mm.payment]++; gen[mm.payment]++; }
-      r.present += mm.present; r.absent += mm.absent;
+      r.present += P(mm); r.absent += A(mm);
     });
   });
 
   const rate = (p + a) > 0 ? Math.round(p / (p + a) * 100) : 100;
   const cards = [
-    ['إجمالي الطلاب', appData.students.length, 'text-slate-800', 'fa-users', 'bg-blue-50 text-blue-600'],
+    ['إجمالي الطلاب', act().length, 'text-slate-800', 'fa-users', 'bg-blue-50 text-blue-600'],
     ['عدد الصفوف الدراسية', appData.classes.length, 'text-slate-800', 'fa-layer-group', 'bg-indigo-50 text-indigo-600'],
     ['نسبة الحضور (الشهر الحالي)', rate + '%', 'text-brand-600', 'fa-chart-line', 'bg-green-50 text-brand-600'],
     ['لم يدفعوا هذا الشهر', cur.UNPAID, 'text-amber-600', 'fa-hand-holding-dollar', 'bg-amber-50 text-amber-600']
@@ -543,7 +551,7 @@ function renderClassesGrid() {
     return;
   }
   grid.innerHTML = appData.classes.map(c => {
-    const n = appData.students.filter(s => s.classId === c.id).length;
+    const n = appData.students.filter(s => s.classId === c.id && !s.archived).length;
     return `<div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
       <div><div class="flex justify-between items-start"><h3 class="font-bold text-lg">${esc(c.name)}</h3>
         <span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold">${n} طالب</span></div>
@@ -559,100 +567,149 @@ function openClassModal(id = null) {
   document.getElementById('modal-class-title').textContent = c ? 'تعديل الصف الدراسي' : 'إضافة صف دراسي جديد';
   document.getElementById('class-name').value = c ? c.name : '';
   document.getElementById('class-desc').value = c ? (c.desc || '') : '';
+  document.getElementById('class-fee').value = c ? (c.fee || '') : '';
   document.getElementById('modal-class').classList.remove('hidden');
 }
 function closeClassModal() { document.getElementById('modal-class').classList.add('hidden'); }
 function handleSaveClass(e) {
   e.preventDefault();
   const id = document.getElementById('class-id').value;
-  const name = document.getElementById('class-name').value.trim(), desc = document.getElementById('class-desc').value.trim();
-  if (id) { const c = appData.classes.find(x => x.id === id); if (c) { c.name = name; c.desc = desc; } }
-  else appData.classes.push({ id: 'c_' + Date.now(), name, desc });
+  const name = document.getElementById('class-name').value.trim(), desc = document.getElementById('class-desc').value.trim(), fee = +document.getElementById('class-fee').value || 0;
+  if (id) { const c = appData.classes.find(x => x.id === id); if (c) { c.name = name; c.desc = desc; c.fee = fee; } }
+  else appData.classes.push({ id: 'c_' + Date.now(), name, desc, fee });
   saveToLocalStorage(); closeClassModal(); renderClassesGrid(); populateClassSelects();
 }
 function deleteClass(id) {
-  if (confirm('هل أنت متأكد من حذف هذا الصف؟ لن يتم حذف الطلاب ولكن سيرتبطون بصف محذوف.')) {
+  if (appData.students.some(s => s.classId === id)) return alert('لا يمكن حذف صف به طلاب (حتى المؤرشفين). انقلهم لصف آخر أولًا.');
+  if (confirm('هل أنت متأكد من حذف هذا الصف؟')) {
     appData.classes = appData.classes.filter(c => c.id !== id);
     saveToLocalStorage(); renderClassesGrid(); populateClassSelects();
   }
 }
 
 // ================= ATTENDANCE =================
+const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+let attDate = todayStr();
+const ST = { P: ['حضر', 'emerald', 'fa-check'], L: ['متأخر', 'sky', 'fa-clock'], A: ['غاب', 'red', 'fa-xmark'], E: ['بعذر', 'slate', 'fa-file-medical'] };
+function toast(t, bad) {
+  const e = document.createElement('div');
+  e.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[200] px-4 py-2 rounded-xl text-sm font-bold text-white shadow-lg ' + (bad ? 'bg-red-600' : 'bg-slate-900');
+  e.textContent = t; document.body.appendChild(e); setTimeout(() => e.remove(), 3000);
+}
+function changeDate(v) { if (!v) return; attDate = v; viewMonth = v.slice(0, 7); populateMonthSelects(); loadAttendanceList(); renderStudentsTable(); }
 function loadAttendanceList() {
-  const classId = document.getElementById('attendance-class-select').value;
-  const box = document.getElementById('attendance-cards-container');
+  const classId = document.getElementById('attendance-class-select').value, box = document.getElementById('attendance-cards-container');
   const empty = t => `<div class="col-span-full p-8 text-center bg-white rounded-2xl border text-slate-500">${t}</div>`;
   if (!classId) { box.innerHTML = empty('يرجى اختيار صف دراسي أولاً'); return; }
-  const list = appData.students.filter(s => s.classId === classId);
+  const list = act().filter(s => s.classId === classId);
   if (!list.length) { box.innerHTML = empty('لا يوجد طلاب مسجلون في هذا الصف حتى الآن'); return; }
-
-  const btn = (fn, bg, ic, label) => `<button onclick="${fn}" class="py-2 px-2 ${bg} text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition"><i class="fa-solid ${ic}"></i> ${label}</button>`;
+  const cls = appData.classes.find(c => c.id === classId), fee = +(cls && cls.fee) || 0;
+  const wb = (fn, bg, ic, l) => `<button onclick="${fn}" class="py-2 px-2 ${bg} text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1"><i class="${ic}"></i> ${l}</button>`;
   box.innerHTML = list.map(st => {
-    const s = monthView(st), pay = PAY[s.paymentStatus] || PAY.UNPAID;
-    return `<div class="bg-white p-5 rounded-2xl shadow-md border border-slate-200 flex flex-col justify-between space-y-4">
-      <div class="flex justify-between items-start">
-        <div><h3 class="font-bold text-slate-900 text-base mb-1">${esc(s.name)}</h3>
-          <p class="text-xs text-slate-500 font-mono flex items-center gap-1"><i class="fa-brands fa-whatsapp text-emerald-600"></i> ${esc(s.phone)}</p></div>
-        <span class="px-2.5 py-1 rounded-lg text-xs font-bold border ${pay.c}">${pay.t}</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl text-center border border-slate-100">
-        <div class="border-l border-slate-200"><span class="block text-[11px] font-bold text-slate-500 mb-0.5">حضور الشهر</span><span class="text-lg font-black text-emerald-600">${s.presentCount} يوم</span></div>
-        <div><span class="block text-[11px] font-bold text-slate-500 mb-0.5">غياب الشهر</span><span class="text-lg font-black text-red-600">${s.absentCount} يوم</span></div>
-      </div>
-      <div class="space-y-2.5">
-        <div class="grid grid-cols-2 gap-2">${btn(`markAndSend('${s.id}','PRESENT','STUDENT')`, 'bg-emerald-600 hover:bg-emerald-700', 'fa-check', 'حضر (الطالب)')}${btn(`markAndSend('${s.id}','PRESENT','PARENT')`, 'bg-emerald-800 hover:bg-emerald-900', 'fa-check-double', 'حضر (الوالد)')}</div>
-        <div class="grid grid-cols-2 gap-2">${btn(`markAndSend('${s.id}','ABSENT','STUDENT')`, 'bg-red-600 hover:bg-red-700', 'fa-xmark', 'غاب (الطالب)')}${btn(`markAndSend('${s.id}','ABSENT','PARENT')`, 'bg-red-800 hover:bg-red-900', 'fa-user-xmark', 'غاب (الوالد)')}</div>
-        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">${btn(`sendPaymentReminder('${s.id}','STUDENT')`, 'bg-amber-500 hover:bg-amber-600', 'fa-wallet', 'لم يدفع (الطالب)')}${btn(`sendPaymentReminder('${s.id}','PARENT')`, 'bg-amber-700 hover:bg-amber-800', 'fa-hand-holding-dollar', 'لم يدفع (الوالد)')}</div>
-        <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
-          <label class="text-xs font-bold text-slate-600 whitespace-nowrap">حالة الدفع:</label>
-          <select onchange="setPayment('${s.id}', this.value)" class="flex-1 p-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold">
-            ${Object.keys(PAY).map(k => `<option value="${k}" ${k === s.paymentStatus ? 'selected' : ''}>${PAY[k].t}</option>`).join('')}</select>
-        </div>
-      </div>
+    const s = monthView(st), m = getMonth(st, viewMonth), cur = (m.days || {})[attDate], pay = PAY[s.paymentStatus] || PAY.UNPAID;
+    const sb = Object.entries(ST).map(([k, [l, c, ic]]) => `<button onclick="setDay('${s.id}','${k}')" class="py-2 rounded-xl text-xs font-bold border transition ${cur === k ? 'bg-' + c + '-600 text-white border-' + c + '-600' : 'bg-white text-' + c + '-700 border-' + c + '-300 hover:bg-' + c + '-50'}"><i class="fa-solid ${ic}"></i> ${l}</button>`).join('');
+    const paid = +m.paid || 0;
+    return `<div class="bg-white p-5 rounded-2xl shadow-md border border-slate-200 space-y-3">
+      <div class="flex justify-between items-start"><div><h3 class="font-bold text-base">${esc(s.name)}</h3>
+        <p class="text-xs text-slate-500 font-mono"><i class="fa-brands fa-whatsapp text-emerald-600"></i> ${esc(s.phone)}</p></div>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-bold border ${pay.c}">${pay.t}</span></div>
+      <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl text-center border">
+        <div><span class="block text-[11px] font-bold text-slate-500">حضور الشهر</span><span class="text-lg font-black text-emerald-600">${s.presentCount}</span></div>
+        <div><span class="block text-[11px] font-bold text-slate-500">غياب الشهر</span><span class="text-lg font-black text-red-600">${s.absentCount}</span></div></div>
+      <div class="grid grid-cols-4 gap-1.5">${sb}</div>
+      ${cur ? `<div class="flex justify-between text-[11px] text-slate-500"><span>${attDate}: <b>${ST[cur][0]}</b></span><button onclick="setDay('${s.id}','')" class="text-red-600 font-bold">تراجع</button></div>` : '<p class="text-[11px] text-slate-400">لم يُسجّل هذا اليوم</p>'}
+      <div class="grid grid-cols-2 gap-2">${wb(`notify('${s.id}','STUDENT')`, 'bg-emerald-600 hover:bg-emerald-700', 'fa-brands fa-whatsapp', 'رسالة للطالب')}${wb(`notify('${s.id}','PARENT')`, 'bg-emerald-800 hover:bg-emerald-900', 'fa-brands fa-whatsapp', 'رسالة للوالد')}</div>
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t">${wb(`sendPaymentReminder('${s.id}','STUDENT')`, 'bg-amber-500 hover:bg-amber-600', 'fa-solid fa-wallet', 'تذكير (الطالب)')}${wb(`sendPaymentReminder('${s.id}','PARENT')`, 'bg-amber-700 hover:bg-amber-800', 'fa-solid fa-hand-holding-dollar', 'تذكير (الوالد)')}</div>
+      <div class="flex items-center gap-2 pt-2 border-t"><label class="text-xs font-bold whitespace-nowrap">الدفع:</label>
+        <select onchange="setPayment('${s.id}', this.value)" class="flex-1 p-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold">${Object.keys(PAY).map(k => `<option value="${k}" ${k === s.paymentStatus ? 'selected' : ''}>${PAY[k].t}</option>`).join('')}</select></div>
+      ${fee ? `<div class="flex items-center gap-2 text-xs"><input type="number" min="0" value="${paid}" onchange="setPaid('${s.id}', this.value)" class="w-24 p-1.5 bg-slate-50 border border-slate-300 rounded-lg"><span class="text-slate-500 flex-1">من ${fee} · متبقي ${Math.max(0, fee - paid)}</span>${wb(`sendWhatsAppMessage(appData.students.find(x=>x.id==='${s.id}'),'receiptParent','PARENT')`, 'bg-indigo-600 hover:bg-indigo-700', 'fa-solid fa-receipt', 'إيصال')}</div>` : ''}
     </div>`;
   }).join('');
 }
-
-function setPayment(id, val) {
+function setDay(id, k) {
   const s = appData.students.find(x => x.id === id); if (!s) return;
-  getMonth(s, viewMonth).payment = val;
+  const m = mut(s, viewMonth); m.days = m.days || {};
+  if (!k || m.days[attDate] === k) delete m.days[attDate]; else m.days[attDate] = k;
   saveToLocalStorage(); loadAttendanceList();
 }
-function markAndSend(id, type, who) {
-  const s = appData.students.find(x => x.id === id); if (!s) return;
-  const m = getMonth(s, viewMonth);
-  if (type === 'PRESENT') m.present += 1; else m.absent += 1;
+function bulkDay(k) {
+  const cid = document.getElementById('attendance-class-select').value;
+  act().filter(s => s.classId === cid).forEach(s => {
+    const m = mut(s, viewMonth); m.days = m.days || {};
+    if (!k) delete m.days[attDate]; else if (!m.days[attDate]) m.days[attDate] = k;
+  });
   saveToLocalStorage(); loadAttendanceList();
-  const key = (type === 'PRESENT' ? 'present' : 'absent') + (who === 'STUDENT' ? 'Student' : 'Parent');
-  sendWhatsAppMessage(s, key, who);
+}
+function setPayment(id, val) {
+  const s = appData.students.find(x => x.id === id); if (!s) return;
+  mut(s, viewMonth).payment = val; saveToLocalStorage(); loadAttendanceList();
+}
+function setPaid(id, val) {
+  const s = appData.students.find(x => x.id === id); if (!s) return;
+  const m = mut(s, viewMonth), c = appData.classes.find(x => x.id === s.classId), fee = +(c && c.fee) || 0;
+  m.paid = Math.max(0, +val || 0);
+  m.payment = fee && m.paid >= fee ? 'PAID' : m.paid > 0 ? 'PARTIAL' : 'UNPAID';
+  saveToLocalStorage(); loadAttendanceList();
+}
+function notify(id, who) {
+  const s = appData.students.find(x => x.id === id); if (!s) return;
+  const v = (getMonth(s, viewMonth).days || {})[attDate];
+  if (v === 'P' || v === 'L') sendWhatsAppMessage(s, who === 'STUDENT' ? 'presentStudent' : 'presentParent', who);
+  else if (v === 'A') sendWhatsAppMessage(s, who === 'STUDENT' ? 'absentStudent' : 'absentParent', who);
+  else toast('سجّل حضور أو غياب الطالب أولًا (حالة "بعذر" بدون رسالة)', true);
 }
 function sendPaymentReminder(id, who) {
   const s = appData.students.find(x => x.id === id); if (!s) return;
   sendWhatsAppMessage(s, who === 'STUDENT' ? 'unpaidStudent' : 'unpaidParent', who);
 }
-
+function normPhone(p) {
+  let d = String(p || '').replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('0')) d = '2' + d; else if (/^1[0125]\d{8}$/.test(d)) d = '20' + d;
+  return d;
+}
+const validPhone = p => /^201[0125]\d{8}$/.test(normPhone(p));
 function sendWhatsAppMessage(student, key, who) {
+  if (!student) return;
+  const raw = who === 'STUDENT' ? student.phone : student.parentPhone;
+  if (!raw) return toast('رقم ولي الأمر غير مسجل لهذا الطالب', true);
   const cls = appData.classes.find(c => c.id === student.classId), m = getMonth(student, viewMonth);
-  const msg = (appData.templates[key] || '')
-    .replace(/{اسم_الطالب}/g, student.name)
-    .replace(/{الصف}/g, cls ? cls.name : '')
-    .replace(/{عدد_الغياب}/g, m.absent)
-    .replace(/{عدد_الحضور}/g, m.present)
-    .replace(/{الشهر}/g, monthLabel(viewMonth));
-  let phone = (who === 'STUDENT' ? student.phone : (student.parentPhone || student.phone)).replace(/\D/g, '');
-  if (phone.startsWith('0')) phone = '2' + phone;
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+  const p = P(m), a = A(m), fee = +(cls && cls.fee) || 0;
+  const V = { 'اسم_الطالب': student.name, 'الصف': cls ? cls.name : '', 'عدد_الغياب': a, 'عدد_الحضور': p, 'الشهر': monthLabel(viewMonth),
+    'نسبة_الحضور': (p + a) ? Math.round(p / (p + a) * 100) + '%' : '-', 'المدفوع': m.paid || 0, 'المتبقي': fee ? Math.max(0, fee - (m.paid || 0)) : 'غير محدد' };
+  const msg = (appData.templates[key] || '').replace(/\{([^}]+)\}/g, (x, k) => k in V ? V[k] : x);
+  window.open(`https://wa.me/${normPhone(raw)}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+function renderAlerts() {
+  const out = [], d0 = new Date(), ck = curKey(), pd = new Date(d0.getFullYear(), d0.getMonth() - 1, 1), pk = pd.getFullYear() + '-' + String(pd.getMonth() + 1).padStart(2, '0');
+  act().forEach(s => {
+    const ms = ensureMonths(s), days = [];
+    Object.values(ms).forEach(m => Object.entries(m.days || {}).forEach(e => days.push(e)));
+    days.sort(); let n = 0; for (let i = days.length - 1; i >= 0 && days[i][1] === 'A'; i--) n++;
+    if (n >= 3) out.push(`${s.name}: غاب ${n} حصص متتالية`);
+    if (getMonth(s, ck).payment === 'UNPAID' && ms[pk] && ms[pk].payment === 'UNPAID') out.push(`${s.name}: لم يدفع شهرين متتاليين`);
+  });
+  document.getElementById('alerts-card').classList.toggle('hidden', !out.length);
+  document.getElementById('alerts-box').innerHTML = out.map(t => `<div class="bg-white border border-red-200 rounded-xl p-2.5 font-semibold text-red-700">${esc(t)}</div>`).join('');
+}
+function exportCSV() {
+  const rows = [['الطالب', 'الصف', 'حضور', 'غياب', 'حالة الدفع', 'المدفوع', 'المتبقي']];
+  act().forEach(st => {
+    const m = getMonth(st, viewMonth), c = appData.classes.find(x => x.id === st.classId), f = +(c && c.fee) || 0;
+    rows.push([st.name, c ? c.name : '', P(m), A(m), (PAY[m.payment] || PAY.UNPAID).t, m.paid || 0, f ? Math.max(0, f - (m.paid || 0)) : '']);
+  });
+  const csv = '\ufeff' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'report_' + viewMonth + '.csv'; a.click();
 }
 
 // ================= STUDENTS =================
 function renderStudentsTable() {
   const q = document.getElementById('search-student').value.toLowerCase().trim();
-  const cf = document.getElementById('filter-class-select').value, pf = document.getElementById('filter-payment-select').value;
+  const cf = document.getElementById('filter-class-select').value, pf = document.getElementById('filter-payment-select').value, arch = document.getElementById('filter-arch-select').value === 'ARCH';
   const tbody = document.getElementById('students-table-body');
-  const rows = appData.students.filter(s =>
-    (s.name.toLowerCase().includes(q) || s.phone.includes(q)) &&
-    (cf === 'ALL' || s.classId === cf) &&
-    (pf === 'ALL' || getMonth(s, viewMonth).payment === pf));
+  const rows = appData.students.filter(s => !!s.archived === arch &&
+    (s.name.toLowerCase().includes(q) || String(s.phone || '').includes(q)) &&
+    (cf === 'ALL' || s.classId === cf) && (pf === 'ALL' || getMonth(s, viewMonth).payment === pf));
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400">لا يوجد طلاب مطابقون للبحث</td></tr>'; return; }
   tbody.innerHTML = rows.map(st => {
     const s = monthView(st), cls = appData.classes.find(c => c.id === s.classId), pay = PAY[s.paymentStatus] || PAY.UNPAID;
@@ -661,62 +718,56 @@ function renderStudentsTable() {
       <td class="p-4 font-mono text-xs text-slate-600" dir="ltr">${esc(s.phone)}</td><td class="p-4 font-mono text-xs text-slate-600" dir="ltr">${esc(s.parentPhone) || '-'}</td>
       <td class="p-4 text-center"><span class="text-xs font-bold text-emerald-600">حضور: ${s.presentCount}</span> / <span class="text-xs font-bold text-red-600">غياب: ${s.absentCount}</span></td>
       <td class="p-4 text-center"><span class="px-2.5 py-1 rounded-full text-xs font-bold border ${pay.c}">${pay.t}</span></td>
-      <td class="p-4 text-center"><button onclick="openStudentModal('${s.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-bold">تعديل</button>
-        <button onclick="deleteStudent('${s.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold">حذف</button></td></tr>`;
+      <td class="p-4 text-center whitespace-nowrap"><button onclick="openStudentModal('${s.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-bold">تعديل</button>
+        <button onclick="sendWhatsAppMessage(appData.students.find(x=>x.id==='${s.id}'),'reportParent','PARENT')" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg text-xs font-bold">تقرير</button>
+        <button onclick="toggleArchive('${s.id}')" class="p-2 text-amber-600 hover:bg-amber-50 rounded-lg text-xs font-bold">${s.archived ? 'استعادة' : 'أرشفة'}</button>
+        ${s.archived ? `<button onclick="deleteStudent('${s.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold">حذف</button>` : ''}</td></tr>`;
   }).join('');
 }
-
 function openStudentModal(id = null) {
   populateClassSelects();
   document.getElementById('student-id').value = id || '';
   const s = id ? appData.students.find(x => x.id === id) : null;
-  const m = s ? getMonth(s, viewMonth) : { present: 0, absent: 0, payment: 'UNPAID' };
+  const m = s ? getMonth(s, viewMonth) : { present: 0, absent: 0, payment: 'UNPAID', paid: 0 };
   document.getElementById('modal-student-title').textContent = s ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد';
   document.getElementById('modal-month-label').textContent = monthLabel(viewMonth);
   document.getElementById('student-name').value = s ? s.name : '';
   if (s) document.getElementById('student-class-id').value = s.classId;
   document.getElementById('student-phone').value = s ? s.phone : '';
   document.getElementById('student-parent-phone').value = s ? (s.parentPhone || '') : '';
-  document.getElementById('student-absent-count').value = m.absent;
-  document.getElementById('student-present-count').value = m.present;
+  document.getElementById('student-absent-count').value = m.absent || 0;
+  document.getElementById('student-present-count').value = m.present || 0;
   document.getElementById('student-payment').value = m.payment;
+  document.getElementById('student-paid').value = m.paid || 0;
   document.getElementById('modal-student').classList.remove('hidden');
 }
 function closeStudentModal() { document.getElementById('modal-student').classList.add('hidden'); }
 function handleSaveStudent(e) {
   e.preventDefault();
-  const id = document.getElementById('student-id').value;
-  const monthData = {
-    present: parseInt(document.getElementById('student-present-count').value) || 0,
-    absent: parseInt(document.getElementById('student-absent-count').value) || 0,
-    payment: document.getElementById('student-payment').value
-  };
-  const f = {
-    name: document.getElementById('student-name').value.trim(),
-    classId: document.getElementById('student-class-id').value,
-    phone: document.getElementById('student-phone').value.trim(),
-    parentPhone: document.getElementById('student-parent-phone').value.trim()
-  };
-  if (id) {
-    const s = appData.students.find(x => x.id === id);
-    if (s) { Object.assign(s, f); ensureMonths(s); s.months[viewMonth] = monthData; }
-  } else {
-    appData.students.push({ id: 's_' + Date.now(), ...f, months: { [viewMonth]: monthData } });
-  }
+  const id = document.getElementById('student-id').value, g = x => document.getElementById(x).value;
+  const f = { name: g('student-name').trim(), classId: g('student-class-id'), phone: g('student-phone').trim(), parentPhone: g('student-parent-phone').trim() };
+  if (!f.classId) return alert('أضف صفًا دراسيًا أولًا');
+  if (!validPhone(f.phone) || (f.parentPhone && !validPhone(f.parentPhone))) { if (!confirm('الرقم لا يبدو رقم موبايل مصري صحيح (01XXXXXXXXX). متابعة على أي حال؟')) return; }
+  if (appData.students.some(x => x.id !== id && normPhone(x.phone) === normPhone(f.phone) && x.name.trim() === f.name)) { if (!confirm('يوجد طالب بنفس الاسم والرقم. إضافة مكرر؟')) return; }
+  const s = id ? appData.students.find(x => x.id === id) : null;
+  const md = { ...(s ? getMonth(s, viewMonth) : { days: {} }), present: parseInt(g('student-present-count')) || 0, absent: parseInt(g('student-absent-count')) || 0, payment: g('student-payment'), paid: +g('student-paid') || 0 };
+  if (s) { Object.assign(s, f); mut(s, viewMonth); s.months[viewMonth] = md; }
+  else appData.students.push({ id: 's_' + Date.now(), ...f, months: { [viewMonth]: md } });
   saveToLocalStorage(); closeStudentModal(); renderStudentsTable(); populateMonthSelects();
 }
+function toggleArchive(id) {
+  const s = appData.students.find(x => x.id === id); if (!s) return;
+  s.archived = !s.archived; saveToLocalStorage(); renderStudentsTable(); toast(s.archived ? 'تمت الأرشفة' : 'تمت الاستعادة');
+}
 function deleteStudent(id) {
-  if (confirm('هل أنت متأكد من حذف هذا الطالب نهائياً؟')) {
-    appData.students = appData.students.filter(s => s.id !== id);
-    saveToLocalStorage(); renderStudentsTable();
-  }
+  if (confirm('حذف نهائي لهذا الطالب وكل سجلاته؟ لا يمكن التراجع.')) { appData.students = appData.students.filter(s => s.id !== id); saveToLocalStorage(); renderStudentsTable(); }
 }
 
 // ================= TEMPLATES =================
 function renderTemplates() { TPL.forEach(([k]) => { document.getElementById('tpl-' + k).value = appData.templates[k] || ''; }); }
 function saveTemplates() {
   TPL.forEach(([k]) => { appData.templates[k] = document.getElementById('tpl-' + k).value; });
-  saveToLocalStorage(); alert('تم حفظ كافة قوالب الرسائل بنجاح!');
+  saveToLocalStorage(); toast('تم حفظ القوالب ✓');
 }
 
 // ================= EXPORT / IMPORT =================
@@ -731,8 +782,11 @@ function importData(event) {
   fr.onload = async e => {
     try {
       const d = JSON.parse(e.target.result);
-      if (d.classes && d.students) { appData = { ...appData, ...d, templates: { ...appData.templates, ...(d.templates || {}) } }; await cloudSave(); location.reload(); }
-      else alert('الملف غير صحيح أو لا يحتوي على بنية البيانات المطلوبة.');
+      if (!(Array.isArray(d.classes) && Array.isArray(d.students) && d.students.every(x => x && typeof x.name === 'string'))) return alert('الملف غير صحيح أو لا يحتوي على بنية البيانات المطلوبة.');
+      if (!confirm('سيتم استبدال كل البيانات الحالية بمحتوى الملف. متابعة؟')) return;
+      d.students.forEach(x => x.phone = String(x.phone || ''));
+      appData = { ...appData, ...d, templates: { ...appData.templates, ...(d.templates || {}) } };
+      await cloudSave(); location.reload();
     } catch (err) { alert('حدث خطأ أثناء قراءة الملف.'); }
   };
   fr.readAsText(event.target.files[0]);
@@ -740,30 +794,57 @@ function importData(event) {
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, writeBatch, collection, getDocs, Timestamp, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===== الصق هنا إعدادات مشروع Firebase الخاص بك =====
-const firebaseConfig = {
-  apiKey: "AIzaSyBky6Dy-MY1f_dz3CvUZsBe2AF08dBRfiU",
+const firebaseConfig = { 
+    apiKey: "AIzaSyBky6Dy-MY1f_dz3CvUZsBe2AF08dBRfiU",
   authDomain: "teacher-platform-39256.firebaseapp.com",
   projectId: "teacher-platform-39256",
-  appId: "1:591708682941:web:e6d26763a1c79b3c7215d4"
+  storageBucket: "teacher-platform-39256.firebasestorage.app",
+  messagingSenderId: "591708682941",
+  appId: "1:591708682941:web:e6d26763a1c79b3c7215d4",
+  measurementId: "G-BFE5BB6256"
 };
 
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
-let ref = null, unsub = null;
+let signingUp = false, snap = {}, metaSnap = '';
+const U = () => auth.currentUser.uid, tdoc = id => doc(db, 'teachers', id);
+const clean = o => JSON.parse(JSON.stringify(o));
 window.fb = {
-  async login(hash) {
-    if (firebaseConfig.apiKey.startsWith("PASTE")) throw Object.assign(new Error("no config"), { code: "no-config" });
-    if (!auth.currentUser) await signInAnonymously(auth);
-    ref = doc(db, "teachers", hash);
-    const snap = await getDoc(ref);          // يرفض السيرفر لو المفتاح غير مسجل
-    return snap.exists() ? snap.data() : null;
+  onAuth(cb) { window.fb._cb = cb; onAuthStateChanged(auth, u => { if (!signingUp) cb(u); }); },
+  signin: (e, p) => signInWithEmailAndPassword(auth, e, p),
+  reset: e => sendPasswordResetEmail(auth, e),
+  async signup(name, email, pw) {
+    signingUp = true;
+    try {
+      const c = await createUserWithEmailAndPassword(auth, email, pw);
+      await setDoc(tdoc(c.user.uid), { name, email, plan: 'trial', suspended: false, createdAt: serverTimestamp(), accessUntil: Timestamp.fromMillis(Date.now() + 14 * 864e5) });
+    } finally { signingUp = false; }
+    window.fb._cb(auth.currentUser);
   },
-  async save(data) { await setDoc(ref, JSON.parse(JSON.stringify(data))); },
-  listen(cb) { if (unsub) unsub(); unsub = onSnapshot(ref, s => cb(s.exists() ? s.data() : null, s.metadata.hasPendingWrites)); },
-  logout() { if (unsub) unsub(); unsub = null; ref = null; auth.signOut(); }
+  async load() {
+    const uid = U(), p = await getDoc(tdoc(uid));
+    if (!p.exists()) return { profile: null };
+    const m = await getDoc(doc(db, 'teachers', uid, 'meta', 'main')), ss = await getDocs(collection(db, 'teachers', uid, 'students'));
+    const md = m.exists() ? m.data() : {}, students = ss.docs.map(d => d.data());
+    snap = {}; students.forEach(s => snap[s.id] = JSON.stringify(s)); metaSnap = JSON.stringify({ classes: md.classes || [], templates: md.templates || {} });
+    return { profile: { id: uid, ...p.data() }, data: { classes: md.classes || [], templates: md.templates || {}, students } };
+  },
+  async save(d) {
+    const uid = U(), ops = [], meta = JSON.stringify({ classes: d.classes, templates: d.templates }), ids = new Set(d.students.map(s => s.id));
+    if (meta !== metaSnap) ops.push(b => b.set(doc(db, 'teachers', uid, 'meta', 'main'), clean({ classes: d.classes, templates: d.templates })));
+    d.students.forEach(s => { const j = JSON.stringify(s); if (snap[s.id] !== j) ops.push(b => b.set(doc(db, 'teachers', uid, 'students', s.id), clean(s))); });
+    Object.keys(snap).forEach(id => { if (!ids.has(id)) ops.push(b => b.delete(doc(db, 'teachers', uid, 'students', id))); });
+    for (let i = 0; i < ops.length; i += 400) { const b = writeBatch(db); ops.slice(i, i + 400).forEach(f => f(b)); await b.commit(); }
+    metaSnap = meta; snap = {}; d.students.forEach(s => snap[s.id] = JSON.stringify(s));
+  },
+  async isAdmin() { try { await getDocs(collection(db, 'teachers')); return true; } catch (e) { return false; } },
+  async listTeachers() { return (await getDocs(collection(db, 'teachers'))).docs.map(d => ({ id: d.id, ...d.data() })); },
+  async extend(id, days) { const p = await getDoc(tdoc(id)), base = Math.max(Date.now(), p.data().accessUntil.toMillis()); await updateDoc(tdoc(id), { accessUntil: Timestamp.fromMillis(base + days * 864e5), suspended: false }); },
+  suspend: (id, v) => updateDoc(tdoc(id), { suspended: v }),
+  logout() { signOut(auth); }
 };
 </script>
 </body>
