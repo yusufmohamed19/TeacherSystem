@@ -360,7 +360,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ================= LOGIN =================
-const SUPPORT_PHONE = '201552973130'; // رقم واتساب الدعم لتجديد الاشتراك
+const SUPPORT_PHONE = '20XXXXXXXXXX'; // رقم واتساب الدعم لتجديد الاشتراك
 let signupMode = false, me = null, access = true;
 function setLoginBusy(b) { const x = document.getElementById('login-btn'); x.disabled = b; x.textContent = b ? 'جاري التحميل...' : (signupMode ? 'إنشاء الحساب' : 'دخول'); }
 function showLoginError(m) { const e = document.getElementById('login-error'); e.textContent = m; e.classList.toggle('hidden', !m); }
@@ -401,7 +401,7 @@ function renderAccessBanner() {
   b.innerHTML = !access ? `⛔ ${me.suspended ? 'الحساب موقوف' : 'انتهى اشتراكك'}: عرض وتصدير البيانات فقط، والحفظ متوقف. ${wa}` : `⏳ يتبقى ${days} يوم على انتهاء الاشتراك. ${wa}`;
 }
 async function renderAdmin() {
-  const list = await window.fb.listTeachers(), now = Date.now();
+  const list = (await window.fb.listTeachers()).filter(t => t.accessUntil && t.email), now = Date.now();
   document.getElementById('admin-count').textContent = '(' + list.length + ')';
   document.getElementById('admin-body').innerHTML = list.sort((a, b) => b.accessUntil.toMillis() - a.accessUntil.toMillis()).map(t => {
     const ok = !t.suspended && t.accessUntil.toMillis() > now;
