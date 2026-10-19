@@ -396,7 +396,7 @@ async function enter() {
 }
 function renderAccessBanner() {
   const b = document.getElementById('access-banner'), days = Math.ceil((me.accessUntil.toMillis() - Date.now()) / 864e5);
-  const wa = `<a class="underline font-bold" target="_blank" href="https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent('أريد تجديد اشتراكي: ' + me.email)}">تواصل للتجديد</a>`;
+  const wa = `<a class="underline font-bold" target="_blank" href="https://wa.me/${SUPPORT_PHONE}?text=${encodeURIComponent('أريد تجديد اشتراكي السانوي في منصة المُعلّم الذكي: ' + me.email)}">تواصل للتجديد</a>`;
   b.className = access ? (days <= 7 ? 'bg-amber-100 text-amber-900 text-center text-sm py-2' : 'hidden') : 'bg-red-600 text-white text-center text-sm py-2';
   b.innerHTML = !access ? `⛔ ${me.suspended ? 'الحساب موقوف' : 'انتهى اشتراكك'}: عرض وتصدير البيانات فقط، والحفظ متوقف. ${wa}` : `⏳ يتبقى ${days} يوم على انتهاء الاشتراك. ${wa}`;
 }
